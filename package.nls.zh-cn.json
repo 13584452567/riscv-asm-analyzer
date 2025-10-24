@@ -1,0 +1,11 @@
+{
+  "extension.displayName": "RISC-V 汇编分析器",
+  "extension.description": "适用于 Visual Studio Code 的 RISC-V 汇编与反汇编工具。",
+  "command.openSidebar.title": "RISC-V：打开分析器",
+  "command.loadSelection.title": "RISC-V：分析选中内容",
+  "viewContainer.riscvAsmAnalyzer.title": "RISC-V 分析器",
+  "view.riscvAsmAnalyzer.view.name": "汇编 / 反汇编",
+  "configuration.title": "RISC-V 分析器",
+  "configuration.cliPath.description": "外部 RISC-V 汇编/反汇编 CLI 的绝对路径。",
+  "configuration.defaultArgs.description": "调用 CLI 时附加的额外参数。"
+}

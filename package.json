@@ -1,7 +1,7 @@
 {
   "name": "riscv-asm-analyzer",
-  "displayName": "RiscV-asm-analyzer",
-  "description": "riscv assembler support for Visual Studio Code",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.105.0"
@@ -9,15 +9,72 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
-        "command": "riscv-asm-analyzer.helloWorld",
-        "title": "Hello World"
+        "command": "riscv-asm-analyzer.openSidebar",
+        "title": "%command.openSidebar.title%"
+      },
+      {
+        "command": "riscv-asm-analyzer.loadSelection",
+        "title": "%command.loadSelection.title%"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "riscvAsmAnalyzer",
+          "title": "%viewContainer.riscvAsmAnalyzer.title%",
+          "icon": "images/riscv-view.svg"
+        }
+      ]
+    },
+    "views": {
+      "riscvAsmAnalyzer": [
+        {
+          "id": "riscvAsmAnalyzer.view",
+          "name": "%view.riscvAsmAnalyzer.view.name%",
+          "type": "webview",
+          "icon": "images/riscv-view.svg"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "riscv-asm-analyzer.loadSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@95"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "riscv-asm-analyzer.loadSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@95"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "riscvAsmAnalyzer.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.cliPath.description%"
+        },
+        "riscvAsmAnalyzer.defaultArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%configuration.defaultArgs.description%"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
