@@ -46,6 +46,12 @@ class Disassembler {
 	}
 
 	private disassembleWord(word: number, line: number): string {
+		// Check if it's a compressed instruction (16-bit)
+		if ((word & 0x3) !== 0x3) {
+			return this.disassembleCompressedWord(word, line);
+		}
+
+		// 32-bit instruction
 		const opcode = word & 0x7f;
 		const candidates = instructionsByOpcode.get(opcode);
 		if (!candidates || candidates.length === 0) {
@@ -108,6 +114,71 @@ class Disassembler {
 				return decodeFloatR4Type(spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
+		}
+	}
+
+	private disassembleCompressedWord(word: number, line: number): string {
+		// Compressed instructions use different opcode encoding
+		const opcode = word & 0x3; // Low 2 bits
+		const funct3 = (word >> 13) & 0x7; // Bits 15:13
+
+		// For compressed instructions, we need to map to the full opcode
+		let fullOpcode: number;
+		switch (opcode) {
+			case 0b00:
+				fullOpcode = 0b00 | (funct3 << 2);
+				break;
+			case 0b01:
+				fullOpcode = 0b01 | (funct3 << 2);
+				break;
+			case 0b10:
+				fullOpcode = 0b10 | (funct3 << 2);
+				break;
+			default:
+				throw new AnalyzerError('Invalid compressed instruction encoding', line);
+		}
+
+		const candidates = instructionsByOpcode.get(fullOpcode);
+		if (!candidates || candidates.length === 0) {
+			throw new AnalyzerError(`Unknown compressed opcode 0x${fullOpcode.toString(16)}`, line);
+		}
+		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate));
+		if (filtered.length === 0) {
+			throw new AnalyzerError('Unsupported compressed instruction encoding', line);
+		}
+		const spec = filtered.find(candidate => matchesCompressedSpec(candidate, word));
+		if (!spec) {
+			throw new AnalyzerError('Unsupported compressed instruction encoding', line);
+		}
+		this.recordInstruction(spec);
+
+		switch (spec.operandPattern) {
+			case 'rd_rs2':
+				return decodeCRType(spec, word);
+			case 'rd_rs1_nzimm6':
+			case 'rd_nzimm6':
+				return decodeCIType(spec, word);
+			case 'rs2_nzimm6':
+				return decodeCSSType(spec, word);
+			case 'rd_nzuimm6':
+				return decodeCIWType(spec, word);
+			case 'rd_rs1_nzuimm6':
+				return decodeCLType(spec, word);
+			case 'rs2_rs1_nzuimm6':
+				return decodeCSType(spec, word);
+			case 'rd_rs1_rs2':
+				return decodeCAType(spec, word);
+			case 'rd_rs1_nzimm5':
+			case 'rs1_nzimm5':
+				return decodeCBType(spec, word);
+			case 'rd_nzimm11':
+				return decodeCJType(spec, word);
+			case 'rs1':
+				return decodeCRType(spec, word);
+			case 'none':
+				return decodeZeroOperand(spec);
+			default:
+				throw new AnalyzerError(`Unhandled compressed operand pattern for '${spec.name}'`, line);
 		}
 	}
 
@@ -218,6 +289,78 @@ function matchesSpec(spec: InstructionSpec, word: number): boolean {
 		}
 	}
 	return true;
+}
+
+function matchesCompressedSpec(spec: InstructionSpec, word: number): boolean {
+	switch (spec.format) {
+		case 'CR':
+			return matchesCR(spec, word);
+		case 'CI':
+			return matchesCI(spec, word);
+		case 'CSS':
+			return matchesCSS(spec, word);
+		case 'CIW':
+			return matchesCIW(spec, word);
+		case 'CL':
+			return matchesCL(spec, word);
+		case 'CS':
+			return matchesCS(spec, word);
+		case 'CA':
+			return matchesCA(spec, word);
+		case 'CB':
+			return matchesCB(spec, word);
+		case 'CJ':
+			return matchesCJ(spec, word);
+		default:
+			return false;
+	}
+}
+
+function matchesCR(spec: InstructionSpec, word: number): boolean {
+	const funct4 = (word >> 12) & 0xf;
+	return spec.funct4 === funct4;
+}
+
+function matchesCI(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
+}
+
+function matchesCSS(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
+}
+
+function matchesCIW(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
+}
+
+function matchesCL(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
+}
+
+function matchesCS(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
+}
+
+function matchesCA(spec: InstructionSpec, word: number): boolean {
+	const funct6 = (word >> 10) & 0x3f;
+	const funct2 = (word >> 5) & 0x3;
+	return spec.funct6 === funct6 && spec.funct2 === funct2;
+}
+
+function matchesCB(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	const funct2 = (word >> 10) & 0x3;
+	return spec.funct3 === funct3 && spec.funct2 === funct2;
+}
+
+function matchesCJ(spec: InstructionSpec, word: number): boolean {
+	const funct3 = (word >> 13) & 0x7;
+	return spec.funct3 === funct3;
 }
 
 function decodeRType(spec: InstructionSpec, word: number): string {
@@ -392,6 +535,80 @@ function decodeCsrImmediate(spec: InstructionSpec, word: number): string {
 	const zimm = (word >> 15) & 0x1f;
 	const csr = (word >> 20) & 0xfff;
 	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${zimm}`;
+}
+
+function decodeCRType(spec: InstructionSpec, word: number): string {
+	const rd = (word >> 7) & 0x1f;
+	const rs2 = (word >> 2) & 0x1f;
+	if (spec.operandPattern === 'rd_rs2') {
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs2)}`;
+	} else if (spec.operandPattern === 'rs1') {
+		return `${spec.name} ${formatRegister(rd)}`;
+	}
+	return spec.name;
+}
+
+function decodeCIType(spec: InstructionSpec, word: number): string {
+	const rd = (word >> 7) & 0x1f;
+	const imm = signExtend(((word >> 2) & 0x1f) | ((word >> 12) & 0x1) << 5, 6);
+	if (spec.operandPattern === 'rd_rs1_nzimm6') {
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rd)}, ${imm}`;
+	} else if (spec.operandPattern === 'rd_nzimm6') {
+		return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+	}
+	return spec.name;
+}
+
+function decodeCSSType(spec: InstructionSpec, word: number): string {
+	const rs2 = (word >> 2) & 0x1f;
+	const imm = ((word >> 7) & 0x3) | ((word >> 10) & 0xf) << 2;
+	return `${spec.name} ${formatRegister(rs2)}, ${imm}`;
+}
+
+function decodeCIWType(spec: InstructionSpec, word: number): string {
+	const rd = ((word >> 2) & 0x7) + 8;
+	const imm = ((word >> 5) & 0x1) | ((word >> 6) & 0x3) << 1 | ((word >> 10) & 0x3) << 3 | ((word >> 12) & 0x1) << 5;
+	return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+}
+
+function decodeCLType(spec: InstructionSpec, word: number): string {
+	const rd = ((word >> 2) & 0x7) + 8;
+	const rs1 = ((word >> 7) & 0x7) + 8;
+	const imm = ((word >> 5) & 0x1) | ((word >> 10) & 0x7) << 1;
+	return `${spec.name} ${formatRegister(rd)}, ${imm}(${formatRegister(rs1)})`;
+}
+
+function decodeCSType(spec: InstructionSpec, word: number): string {
+	const rs2 = ((word >> 2) & 0x7) + 8;
+	const rs1 = ((word >> 7) & 0x7) + 8;
+	const imm = ((word >> 5) & 0x1) | ((word >> 10) & 0x7) << 1;
+	return `${spec.name} ${formatRegister(rs2)}, ${imm}(${formatRegister(rs1)})`;
+}
+
+function decodeCAType(spec: InstructionSpec, word: number): string {
+	const rd = ((word >> 2) & 0x7) + 8;
+	const rs2 = ((word >> 5) & 0x7) + 8;
+	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs2)}`;
+}
+
+function decodeCBType(spec: InstructionSpec, word: number): string {
+	const rs1 = ((word >> 2) & 0x7) + 8;
+	const imm = signExtend(((word >> 3) & 0x1) | ((word >> 5) & 0x3) << 1 | ((word >> 10) & 0x3) << 3 | ((word >> 12) & 0x1) << 5, 6);
+	if (spec.operandPattern === 'rd_rs1_nzimm5') {
+		return `${spec.name} ${formatRegister(rs1)}, ${formatRegister(rs1)}, ${imm}`;
+	} else if (spec.operandPattern === 'rs1_nzimm5') {
+		return `${spec.name} ${formatRegister(rs1)}, ${imm}`;
+	}
+	return spec.name;
+}
+
+function decodeCJType(spec: InstructionSpec, word: number): string {
+	const imm = signExtend(
+		((word >> 2) & 0x1) | ((word >> 3) & 0x7) << 1 | ((word >> 6) & 0x3) << 4 |
+		((word >> 8) & 0x1) << 6 | ((word >> 9) & 0x3) << 7 | ((word >> 11) & 0x1) << 9 |
+		((word >> 12) & 0x1) << 10, 11
+	);
+	return `${spec.name} ${imm}`;
 }
 
 
