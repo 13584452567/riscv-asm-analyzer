@@ -33,6 +33,21 @@ describe('RISC-V assembler backend', () => {
 		assert.strictEqual(result, '0x007302bb');
 	});
 
+	it('assembles mul instruction', () => {
+		const result = assemble('mul x5, x6, x7');
+		assert.strictEqual(result, '0x027182b3');
+	});
+
+	it('assembles div instruction', () => {
+		const result = assemble('div x10, x11, x12');
+		assert.strictEqual(result, '0x02c5c533');
+	});
+
+	it('assembles mulw instruction', () => {
+		const result = assemble('mulw x5, x6, x7');
+		assert.strictEqual(result, '0x027182bb');
+	});
+
 	it('assembles ld instruction', () => {
 		const result = assemble('ld x8, 16(x9)');
 		assert.strictEqual(result, '0x0104b403');
@@ -58,10 +73,24 @@ describe('RISC-V assembler backend', () => {
 		assert.strictEqual(result.detectedXlen, 64);
 	});
 
+	it('auto-detects XLEN 64 when assembling RV64M instructions', () => {
+		const result = assembleDetailed('mulw x1, x2, x3');
+		assert.strictEqual(result.detectedXlen, 64);
+	});
+
 	it('rejects RV64I instruction when XLEN forced to 32', () => {
 		assert.throws(
 			() => {
 				assembleDetailed('addw x1, x2, x3', { xlen: 32 });
+			},
+			AnalyzerError
+		);
+	});
+
+	it('rejects RV64M instruction when XLEN forced to 32', () => {
+		assert.throws(
+			() => {
+				assembleDetailed('mulw x1, x2, x3', { xlen: 32 });
 			},
 			AnalyzerError
 		);
@@ -110,6 +139,21 @@ describe('RISC-V disassembler backend', () => {
 		assert.strictEqual(result, 'addw x5, x6, x7');
 	});
 
+	it('disassembles mul instruction', () => {
+		const result = disassemble('0x027182b3');
+		assert.strictEqual(result, 'mul x5, x6, x7');
+	});
+
+	it('disassembles div instruction', () => {
+		const result = disassemble('0x02c5c533');
+		assert.strictEqual(result, 'div x10, x11, x12');
+	});
+
+	it('disassembles mulw instruction', () => {
+		const result = disassemble('0x027182bb');
+		assert.strictEqual(result, 'mulw x5, x6, x7');
+	});
+
 	it('disassembles ld instruction', () => {
 		const result = disassemble('0x0104b403');
 		assert.strictEqual(result, 'ld x8, 16(x9)');
@@ -125,10 +169,24 @@ describe('RISC-V disassembler backend', () => {
 		assert.strictEqual(result.detectedXlen, 64);
 	});
 
+	it('auto-detects XLEN 64 during disassembly of RV64M instructions', () => {
+		const result = disassembleDetailed('0x027182bb');
+		assert.strictEqual(result.detectedXlen, 64);
+	});
+
 	it('rejects RV64I machine word when XLEN forced to 32', () => {
 		assert.throws(
 			() => {
 				disassembleDetailed('0x007302bb', { xlen: 32 });
+			},
+			AnalyzerError
+		);
+	});
+
+	it('rejects RV64M machine word when XLEN forced to 32', () => {
+		assert.throws(
+			() => {
+				disassembleDetailed('0x027182bb', { xlen: 32 });
 			},
 			AnalyzerError
 		);

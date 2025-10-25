@@ -263,9 +263,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			defaultError: l10n.t('An error occurred.'),
 			xlenLabel: l10n.t('XLEN'),
 			xlenOptionAuto: l10n.t('Auto-detect'),
-			xlenOption32: l10n.t('Force 32-bit'),
-			xlenOption64: l10n.t('Force 64-bit'),
-			xlenOption128: l10n.t('Force 128-bit'),
+			xlenOption32: l10n.t('32-bit'),
+			xlenOption64: l10n.t('64-bit'),
+			xlenOption128: l10n.t('128-bit'),
 			xlenHint: l10n.t('Choose the register width for encoding and decoding.')
 		};
 
@@ -453,8 +453,8 @@ function buildSuccessMessage(mode: AnalyzerMode, xlenMode: XLenMode, detectedXle
 	const operation = mode === 'assemble' ? l10n.t('Assembly') : l10n.t('Disassembly');
 	const detail =
 		xlenMode === 'auto'
-			? l10n.t('auto-detected XLEN={0}', detectedXlen)
-			: l10n.t('forced XLEN={0}', xlenMode);
+			? l10n.t('XLEN auto-detected as {0}', detectedXlen)
+			: l10n.t('XLEN selection set to {0}', xlenMode);
 	return l10n.t('{0} completed ({1}).', operation, detail);
 }
 
