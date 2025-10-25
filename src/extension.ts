@@ -46,7 +46,12 @@ interface UpdateXlenMessage {
 	value: XLenSelection;
 }
 
-type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage;
+interface UpdateEmbeddedMessage {
+	type: 'updateEmbedded';
+	value: boolean;
+}
+
+type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage | UpdateEmbeddedMessage;
 
 class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'riscvAsmAnalyzer.view';
@@ -56,7 +61,6 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	private resolveView?: () => void;
 	private readonly viewReady: Promise<void>;
 	private xlenMode: XLenSelection = 'auto';
-	private isEmbedded: boolean = false;
 	private isEmbedded: boolean = false;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
@@ -98,7 +102,6 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
 		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
 		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
-		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
 	}
 
 	private enqueueMessage(message: OutboundMessage): void {
@@ -126,6 +129,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'updateXlen':
 				this.xlenMode = normalizeXlenSelection(message.value);
+				break;
+			case 'updateEmbedded':
+				this.isEmbedded = message.value;
 				break;
 			default:
 				break;
@@ -273,7 +279,11 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			xlenOption32: l10n.t('32-bit'),
 			xlenOption64: l10n.t('64-bit'),
 			xlenOption128: l10n.t('128-bit'),
-			xlenHint: l10n.t('Choose the register width for encoding and decoding.')
+			xlenHint: l10n.t('Choose the register width for encoding and decoding.'),
+			embeddedLabel: l10n.t('Embedded'),
+			embeddedOptionStandard: l10n.t('Standard'),
+			embeddedOptionEmbedded: l10n.t('Embedded'),
+			embeddedHint: l10n.t('Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).')
 		};
 
 		const scriptStrings = JSON.stringify({
@@ -294,19 +304,22 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			const clearButton = document.getElementById('clearButton');
 			const statusLine = document.getElementById('statusLine');
 			const xlenSelect = document.getElementById('xlenSelect');
+			const embeddedSelect = document.getElementById('embeddedSelect');
 
 			function setRunning(isRunning) {
 				runButton.disabled = isRunning;
 				copyButton.disabled = isRunning;
 				clearButton.disabled = isRunning;
 				xlenSelect.disabled = isRunning;
+				embeddedSelect.disabled = isRunning;
 				runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
 			}
 
 			runButton.addEventListener('click', event => {
 				event.preventDefault();
 				const mode = event.altKey ? 'disassemble' : 'assemble';
-				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value });
+				const isEmbedded = embeddedSelect.value === 'true';
+				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded });
 			});
 
 			copyButton.addEventListener('click', event => {
@@ -325,10 +338,16 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				vscode.postMessage({ type: 'updateXlen', value: xlenSelect.value });
 			});
 
+			embeddedSelect.addEventListener('change', () => {
+				const isEmbedded = embeddedSelect.value === 'true';
+				vscode.postMessage({ type: 'updateEmbedded', value: isEmbedded });
+			});
+
 			inputArea.addEventListener('keydown', event => {
 				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 					event.preventDefault();
-					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value });
+					const isEmbedded = embeddedSelect.value === 'true';
+					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded });
 				}
 			});
 
@@ -360,6 +379,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 						break;
 					case 'setXlen':
 						xlenSelect.value = message.value ?? 'auto';
+						break;
+					case 'setEmbedded':
+						embeddedSelect.value = message.value ? 'true' : 'false';
 						break;
 					default:
 						break;
@@ -398,6 +420,14 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 					<option value="128">${escapeHtml(uiStrings.xlenOption128)}</option>
 				</select>
 				<span class="hint">${escapeHtml(uiStrings.xlenHint)}</span>
+			</div>
+			<div class="controls-row">
+				<label for="embeddedSelect">${escapeHtml(uiStrings.embeddedLabel)}</label>
+				<select id="embeddedSelect">
+					<option value="false">${escapeHtml(uiStrings.embeddedOptionStandard)}</option>
+					<option value="true">${escapeHtml(uiStrings.embeddedOptionEmbedded)}</option>
+				</select>
+				<span class="hint">${escapeHtml(uiStrings.embeddedHint)}</span>
 			</div>
 			<div class="button-row">
 				<button id="runButton" title="${escapeAttribute(uiStrings.runButtonHint)}">${escapeHtml(uiStrings.runButtonLabel)}</button>
