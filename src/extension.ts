@@ -2,6 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { spawn } from 'child_process';
+import { assemble, disassemble } from './backend';
 
 const { l10n } = vscode;
 
@@ -370,7 +371,7 @@ async function runAnalyzer(mode: AnalyzerMode, input: string): Promise<string> {
 	const additionalArgs = config.get<string[]>('defaultArgs') || [];
 
 	if (!cliPath) {
-		return buildCliPlaceholder(mode, input);
+		return mode === 'assemble' ? assemble(input) : disassemble(input);
 	}
 
 	const args = [...additionalArgs];
@@ -383,12 +384,6 @@ function buildSuccessMessage(mode: AnalyzerMode): string {
 	return mode === 'assemble' ? l10n.t('Assembly completed.') : l10n.t('Disassembly completed.');
 }
 
-function buildCliPlaceholder(mode: AnalyzerMode, input: string): string {
-	const hint = l10n.t("Configure '{0}' for real CLI execution.", 'riscvAsmAnalyzer.cliPath');
-	const banner = mode === 'assemble' ? l10n.t('// Assemble placeholder output') : l10n.t('// Disassemble placeholder output');
-	return `${banner}\n// ${hint}\n${input}`;
-}
-
 function getActiveSelectionText(editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor): string | undefined {
 	if (!editor) {
 		return undefined;
@@ -399,37 +394,6 @@ function getActiveSelectionText(editor: vscode.TextEditor | undefined = vscode.w
 		return line?.text ?? undefined;
 	}
 	return editor.document.getText(selection);
-}
-
-function invokeCli(executable: string, args: string[], input: string): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const child = spawn(executable, args, { shell: false });
-		let stdout = '';
-		let stderr = '';
-
-		child.stdout.on('data', data => {
-			stdout += data.toString();
-		});
-
-		child.stderr.on('data', data => {
-			stderr += data.toString();
-		});
-
-		child.on('error', error => reject(error));
-
-		child.on('close', code => {
-			if (code === 0) {
-				resolve(stdout.trim());
-			} else {
-				reject(new Error(stderr.trim() || l10n.t('CLI exited with code {0}', code)));
-			}
-		});
-
-		if (input.length > 0) {
-			child.stdin.write(input);
-		}
-		child.stdin.end();
-	});
 }
 
 function toErrorMessage(error: unknown): string {
