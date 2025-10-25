@@ -2,10 +2,15 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { spawn } from 'child_process';
+import {
+	AnalyzerMode,
+	AnalyzerExecutionResult,
+	ASSEMBLY_NOT_SUPPORTED_MESSAGE,
+	executeAnalyzer,
+	initializeAnalyzer
+} from './analyzer';
 
 const { l10n } = vscode;
-
-type AnalyzerMode = 'assemble' | 'disassemble';
 
 type OutboundMessage =
 	| { type: 'setInput'; value: string }
@@ -111,10 +116,24 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
 		try {
 			const result = await runAnalyzer(mode, input);
-			this.enqueueMessage({ type: 'result', value: result });
-			this.enqueueMessage({ type: 'info', value: buildSuccessMessage(mode) });
+			this.enqueueMessage({ type: 'result', value: result.output });
+			if (result.didFallbackToDisassemble) {
+				this.enqueueMessage({
+					type: 'info',
+					value: l10n.t('Detected machine code input. Running disassembler instead.')
+				});
+			}
+			result.infoMessages?.forEach(message => {
+				if (message) {
+					this.enqueueMessage({ type: 'info', value: message });
+				}
+			});
+			this.enqueueMessage({ type: 'info', value: buildSuccessMessage(result.effectiveMode) });
 		} catch (error) {
-			const message = toErrorMessage(error);
+			const rawMessage = toErrorMessage(error);
+			const message = rawMessage === ASSEMBLY_NOT_SUPPORTED_MESSAGE
+				? l10n.t('Assembly mode is not available yet. Provide machine code (hex or byte stream) or use Alt+Click for disassembly.')
+				: rawMessage;
 			this.enqueueMessage({ type: 'error', value: message });
 			const modeLabel = mode === 'assemble' ? l10n.t('assembly') : l10n.t('disassembly');
 			vscode.window.showErrorMessage(l10n.t('RISC-V {0} failed: {1}', modeLabel, message));
@@ -338,6 +357,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+	initializeAnalyzer(context);
 	const provider = new RiscvAnalyzerViewProvider(context);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(RiscvAnalyzerViewProvider.viewType, provider)
@@ -364,29 +384,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
-async function runAnalyzer(mode: AnalyzerMode, input: string): Promise<string> {
+async function runAnalyzer(mode: AnalyzerMode, input: string): Promise<AnalyzerExecutionResult> {
 	const config = vscode.workspace.getConfiguration('riscvAsmAnalyzer');
 	const cliPath = (config.get<string>('cliPath') || '').trim();
 	const additionalArgs = config.get<string[]>('defaultArgs') || [];
 
-	if (!cliPath) {
-		return buildCliPlaceholder(mode, input);
+	if (cliPath) {
+		const args = [...additionalArgs];
+		args.push(mode === 'assemble' ? '--assemble' : '--disassemble');
+		const output = await invokeCli(cliPath, args, input);
+		return { effectiveMode: mode, output };
 	}
 
-	const args = [...additionalArgs];
-	args.push(mode === 'assemble' ? '--assemble' : '--disassemble');
-
-	return invokeCli(cliPath, args, input);
+	return executeAnalyzer(mode, input);
 }
 
 function buildSuccessMessage(mode: AnalyzerMode): string {
 	return mode === 'assemble' ? l10n.t('Assembly completed.') : l10n.t('Disassembly completed.');
-}
-
-function buildCliPlaceholder(mode: AnalyzerMode, input: string): string {
-	const hint = l10n.t("Configure '{0}' for real CLI execution.", 'riscvAsmAnalyzer.cliPath');
-	const banner = mode === 'assemble' ? l10n.t('// Assemble placeholder output') : l10n.t('// Disassemble placeholder output');
-	return `${banner}\n// ${hint}\n${input}`;
 }
 
 function getActiveSelectionText(editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor): string | undefined {
@@ -421,7 +435,7 @@ function invokeCli(executable: string, args: string[], input: string): Promise<s
 			if (code === 0) {
 				resolve(stdout.trim());
 			} else {
-				reject(new Error(stderr.trim() || l10n.t('CLI exited with code {0}', code)));
+				reject(new Error(stderr.trim() || l10n.t('CLI exited with code {0}', code ?? -1)));
 			}
 		});
 
