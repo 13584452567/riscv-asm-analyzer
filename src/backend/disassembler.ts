@@ -1,16 +1,118 @@
 import { AnalyzerError } from './errors';
-import { instructionsByOpcode, InstructionSpec } from './instruction-set';
+import { instructionsByOpcode, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
+import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
 import { formatRegister } from './registers';
 import { parseNumericLiteral, signExtend } from './utils';
 
-export function disassemble(source: string): string {
+export interface DisassembleDetailedResult extends AnalyzerResultBase {
+	lines: string[];
+	output: string;
+}
+
+export function disassemble(source: string, options?: AnalyzerOptions): string {
+	return disassembleDetailed(source, options).output;
+}
+
+export function disassembleDetailed(source: string, options?: AnalyzerOptions): DisassembleDetailedResult {
 	const tokenizer = new MachineCodeTokenizer();
-	const words = tokenizer.tokenize(source);
-	const lines: string[] = [];
-	for (const word of words) {
-		lines.push(disassembleWord(word.value, word.line));
+	const tokens = tokenizer.tokenize(source);
+	const mode = options?.xlen ?? 'auto';
+	const disassembler = new Disassembler(mode);
+	const { lines, detectedXlen } = disassembler.disassemble(tokens);
+	return {
+		lines,
+		output: lines.join('\n'),
+		detectedXlen,
+		mode
+	};
+}
+
+class Disassembler {
+	private readonly mode: XLenMode;
+	private detectedXlen: XLen;
+
+	constructor(mode: XLenMode) {
+		this.mode = mode;
+		this.detectedXlen = typeof mode === 'number' ? mode : 32;
 	}
-	return lines.join('\n');
+
+	public disassemble(tokens: MachineWordToken[]): { lines: string[]; detectedXlen: XLen } {
+		const lines: string[] = [];
+		for (const token of tokens) {
+			lines.push(this.disassembleWord(token.value, token.line));
+		}
+		const detected = this.mode === 'auto' ? this.detectedXlen : (this.mode as XLen);
+		return { lines, detectedXlen: detected };
+	}
+
+	private disassembleWord(word: number, line: number): string {
+		const opcode = word & 0x7f;
+		const candidates = instructionsByOpcode.get(opcode);
+		if (!candidates || candidates.length === 0) {
+			throw new AnalyzerError(`Unknown opcode 0x${opcode.toString(16)}`, line);
+		}
+		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate));
+		if (filtered.length === 0) {
+			const required = Math.min(...candidates.map(spec => (spec.minXlen ?? 32)));
+			if (typeof this.mode === 'number') {
+				throw new AnalyzerError(
+					`Instruction requires XLEN ≥ ${required}, but current mode is XLEN=${this.mode}`,
+					line
+				);
+			}
+			throw new AnalyzerError('Unsupported instruction encoding', line);
+		}
+		const spec = filtered.find(candidate => matchesSpec(candidate, word));
+		if (!spec) {
+			throw new AnalyzerError('Unsupported instruction encoding', line);
+		}
+		this.recordInstruction(spec);
+
+		switch (spec.operandPattern) {
+			case 'rd_rs1_rs2':
+				return decodeRType(spec, word);
+			case 'rd_rs1_imm12':
+				return decodeIType(spec, word);
+			case 'rd_mem':
+				return decodeLoad(spec, word);
+			case 'rs2_mem':
+				return decodeStore(spec, word);
+			case 'rs1_rs2_branch':
+				return decodeBranch(spec, word);
+			case 'rd_imm20':
+				return decodeUType(spec, word);
+			case 'rd_jump':
+				return decodeJump(spec, word);
+			case 'none':
+				return decodeZeroOperand(spec);
+			case 'fence':
+				return decodeFence(spec, word);
+			case 'rd_csr_rs1':
+				return decodeCsrRegister(spec, word);
+			case 'rd_csr_imm5':
+				return decodeCsrImmediate(spec, word);
+			default:
+				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
+		}
+	}
+
+	private isInstructionAllowed(spec: InstructionSpec): boolean {
+		if (this.mode === 'auto') {
+			return true;
+		}
+		const required = (spec.minXlen ?? 32) as XLen;
+		return required <= this.mode;
+	}
+
+	private recordInstruction(spec: InstructionSpec): void {
+		if (this.mode !== 'auto') {
+			return;
+		}
+		const required = (spec.minXlen ?? 32) as XLen;
+		if (required > this.detectedXlen) {
+			this.detectedXlen = required;
+		}
+	}
 }
 
 interface MachineWordToken {
@@ -79,46 +181,6 @@ function stripComment(value: string): string {
 		return value;
 	}
 	return value.slice(0, Math.min(...indices));
-}
-
-function disassembleWord(word: number, line: number): string {
-	const opcode = word & 0x7f;
-	const candidates = instructionsByOpcode.get(opcode);
-	if (!candidates || candidates.length === 0) {
-		throw new AnalyzerError(`Unknown opcode 0x${opcode.toString(16)}`, line);
-	}
-
-	const spec = candidates.find(candidate => matchesSpec(candidate, word));
-	if (!spec) {
-		throw new AnalyzerError('Unsupported instruction encoding', line);
-	}
-
-	switch (spec.operandPattern) {
-		case 'rd_rs1_rs2':
-			return decodeRType(spec, word);
-		case 'rd_rs1_imm12':
-			return decodeIType(spec, word);
-		case 'rd_mem':
-			return decodeLoad(spec, word);
-		case 'rs2_mem':
-			return decodeStore(spec, word);
-		case 'rs1_rs2_branch':
-			return decodeBranch(spec, word);
-		case 'rd_imm20':
-			return decodeUType(spec, word);
-		case 'rd_jump':
-			return decodeJump(spec, word);
-		case 'none':
-			return decodeZeroOperand(spec);
-		case 'fence':
-			return decodeFence(spec, word);
-		case 'rd_csr_rs1':
-			return decodeCsrRegister(spec, word);
-		case 'rd_csr_imm5':
-			return decodeCsrImmediate(spec, word);
-		default:
-			throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
-	}
 }
 
 function matchesSpec(spec: InstructionSpec, word: number): boolean {

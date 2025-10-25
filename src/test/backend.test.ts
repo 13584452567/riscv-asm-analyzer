@@ -1,5 +1,11 @@
 import * as assert from 'assert';
-import { assemble, disassemble, AnalyzerError } from '../backend';
+import {
+	assemble,
+	assembleDetailed,
+	disassemble,
+	disassembleDetailed,
+	AnalyzerError
+} from '../backend';
 
 describe('RISC-V assembler backend', () => {
 	it('assembles addi instruction', () => {
@@ -45,6 +51,20 @@ describe('RISC-V assembler backend', () => {
 	it('assembles csrrw instruction', () => {
 		const result = assemble('csrrw x3, 0x305, x1');
 		assert.strictEqual(result, '0x305091f3');
+	});
+
+	it('auto-detects XLEN 64 when assembling RV64I instructions', () => {
+		const result = assembleDetailed('addw x1, x2, x3');
+		assert.strictEqual(result.detectedXlen, 64);
+	});
+
+	it('rejects RV64I instruction when XLEN forced to 32', () => {
+		assert.throws(
+			() => {
+				assembleDetailed('addw x1, x2, x3', { xlen: 32 });
+			},
+			AnalyzerError
+		);
 	});
 
 	it('assembles multiple instructions preserving order', () => {
@@ -98,6 +118,20 @@ describe('RISC-V disassembler backend', () => {
 	it('disassembles sd instruction', () => {
 		const result = disassemble('0xfea5bc23');
 		assert.strictEqual(result, 'sd x10, -8(x11)');
+	});
+
+	it('auto-detects XLEN 64 during disassembly of RV64I instructions', () => {
+		const result = disassembleDetailed('0x007302bb');
+		assert.strictEqual(result.detectedXlen, 64);
+	});
+
+	it('rejects RV64I machine word when XLEN forced to 32', () => {
+		assert.throws(
+			() => {
+				disassembleDetailed('0x007302bb', { xlen: 32 });
+			},
+			AnalyzerError
+		);
 	});
 
 	it('disassembles jal instruction', () => {

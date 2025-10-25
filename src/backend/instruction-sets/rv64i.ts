@@ -6,7 +6,8 @@ const wordImmediateInstructions: InstructionSpec[] = [
 		format: 'I',
 		opcode: 0b0011011,
 		funct3: 0b000,
-		operandPattern: 'rd_rs1_imm12'
+		operandPattern: 'rd_rs1_imm12',
+		minXlen: 64
 	},
 	{
 		name: 'slliw',
@@ -16,7 +17,8 @@ const wordImmediateInstructions: InstructionSpec[] = [
 		funct7: 0b0000000,
 		operandPattern: 'rd_rs1_imm12',
 		immBits: 5,
-		unsignedImmediate: true
+		unsignedImmediate: true,
+		minXlen: 64
 	},
 	{
 		name: 'srliw',
@@ -26,7 +28,8 @@ const wordImmediateInstructions: InstructionSpec[] = [
 		funct7: 0b0000000,
 		operandPattern: 'rd_rs1_imm12',
 		immBits: 5,
-		unsignedImmediate: true
+		unsignedImmediate: true,
+		minXlen: 64
 	},
 	{
 		name: 'sraiw',
@@ -36,7 +39,8 @@ const wordImmediateInstructions: InstructionSpec[] = [
 		funct7: 0b0100000,
 		operandPattern: 'rd_rs1_imm12',
 		immBits: 5,
-		unsignedImmediate: true
+		unsignedImmediate: true,
+		minXlen: 64
 	}
 ];
 
@@ -47,7 +51,8 @@ const wordRegisterInstructions: InstructionSpec[] = [
 		opcode: 0b0111011,
 		funct3: 0b000,
 		funct7: 0b0000000,
-		operandPattern: 'rd_rs1_rs2'
+		operandPattern: 'rd_rs1_rs2',
+		minXlen: 64
 	},
 	{
 		name: 'subw',
@@ -55,7 +60,8 @@ const wordRegisterInstructions: InstructionSpec[] = [
 		opcode: 0b0111011,
 		funct3: 0b000,
 		funct7: 0b0100000,
-		operandPattern: 'rd_rs1_rs2'
+		operandPattern: 'rd_rs1_rs2',
+		minXlen: 64
 	},
 	{
 		name: 'sllw',
@@ -63,7 +69,8 @@ const wordRegisterInstructions: InstructionSpec[] = [
 		opcode: 0b0111011,
 		funct3: 0b001,
 		funct7: 0b0000000,
-		operandPattern: 'rd_rs1_rs2'
+		operandPattern: 'rd_rs1_rs2',
+		minXlen: 64
 	},
 	{
 		name: 'srlw',
@@ -71,7 +78,8 @@ const wordRegisterInstructions: InstructionSpec[] = [
 		opcode: 0b0111011,
 		funct3: 0b101,
 		funct7: 0b0000000,
-		operandPattern: 'rd_rs1_rs2'
+		operandPattern: 'rd_rs1_rs2',
+		minXlen: 64
 	},
 	{
 		name: 'sraw',
@@ -79,7 +87,8 @@ const wordRegisterInstructions: InstructionSpec[] = [
 		opcode: 0b0111011,
 		funct3: 0b101,
 		funct7: 0b0100000,
-		operandPattern: 'rd_rs1_rs2'
+		operandPattern: 'rd_rs1_rs2',
+		minXlen: 64
 	}
 ];
 
@@ -89,14 +98,16 @@ const loadInstructions: InstructionSpec[] = [
 		format: 'I',
 		opcode: 0b0000011,
 		funct3: 0b110,
-		operandPattern: 'rd_mem'
+		operandPattern: 'rd_mem',
+		minXlen: 64
 	},
 	{
 		name: 'ld',
 		format: 'I',
 		opcode: 0b0000011,
 		funct3: 0b011,
-		operandPattern: 'rd_mem'
+		operandPattern: 'rd_mem',
+		minXlen: 64
 	}
 ];
 
@@ -106,7 +117,8 @@ const storeInstructions: InstructionSpec[] = [
 		format: 'S',
 		opcode: 0b0100011,
 		funct3: 0b011,
-		operandPattern: 'rs2_mem'
+		operandPattern: 'rs2_mem',
+		minXlen: 64
 	}
 ];
 

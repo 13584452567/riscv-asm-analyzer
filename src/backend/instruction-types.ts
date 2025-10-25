@@ -13,6 +13,9 @@ export type OperandPattern =
 	| 'rd_csr_rs1'
 	| 'rd_csr_imm5';
 
+export type XLen = 32 | 64 | 128;
+export type XLenMode = 'auto' | XLen;
+
 export interface InstructionSpec {
 	name: string;
 	format: InstructionFormat;
@@ -23,4 +26,5 @@ export interface InstructionSpec {
 	immBits?: number;
 	unsignedImmediate?: boolean;
 	fixedImmediate?: number;
+	minXlen?: XLen;
 }

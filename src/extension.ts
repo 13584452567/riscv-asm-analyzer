@@ -1,23 +1,33 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { assemble, disassemble } from './backend';
+import {
+	assembleDetailed,
+	disassembleDetailed,
+	type AnalyzerOptions,
+	type XLenMode,
+	type XLen
+} from './backend';
 
 const { l10n } = vscode;
 
 type AnalyzerMode = 'assemble' | 'disassemble';
+
+type XLenSelection = 'auto' | '32' | '64' | '128';
 
 type OutboundMessage =
 	| { type: 'setInput'; value: string }
 	| { type: 'result'; value: string }
 	| { type: 'status'; value: 'idle' | 'running' }
 	| { type: 'error'; value: string }
-	| { type: 'info'; value: string };
+	| { type: 'info'; value: string }
+	| { type: 'setXlen'; value: XLenSelection };
 
 interface RunRequestMessage {
 	type: 'run';
 	input: string;
 	mode: AnalyzerMode;
+	xlen: XLenSelection;
 }
 
 interface CopyRequestMessage {
@@ -29,7 +39,12 @@ interface SelectionRequestMessage {
 	type: 'requestSelection';
 }
 
-type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage;
+interface UpdateXlenMessage {
+	type: 'updateXlen';
+	value: XLenSelection;
+}
+
+type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage;
 
 class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'riscvAsmAnalyzer.view';
@@ -38,6 +53,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	private readonly pendingMessages: OutboundMessage[] = [];
 	private resolveView?: () => void;
 	private readonly viewReady: Promise<void>;
+	private xlenMode: XLenSelection = 'auto';
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		this.viewReady = new Promise(resolve => {
@@ -75,6 +91,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				webviewView.webview.postMessage(message);
 			}
 		}
+
+		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
 	}
 
 	private enqueueMessage(message: OutboundMessage): void {
@@ -87,21 +105,27 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
 	private async handleMessage(message: InboundMessage): Promise<void> {
 		switch (message.type) {
-			case 'run':
-				await this.handleRun(message.mode, message.input);
+			case 'run': {
+				const xlenMode = normalizeXlenSelection(message.xlen);
+				this.xlenMode = xlenMode;
+				await this.handleRun(message.mode, message.input, xlenMode);
 				break;
+			}
 			case 'copy':
 				await this.handleCopy(message.value);
 				break;
 			case 'requestSelection':
 				this.pushActiveSelection();
 				break;
+			case 'updateXlen':
+				this.xlenMode = normalizeXlenSelection(message.value);
+				break;
 			default:
 				break;
 		}
 	}
 
-	private async handleRun(mode: AnalyzerMode, input: string): Promise<void> {
+	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection): Promise<void> {
 		if (!input.trim()) {
 			this.enqueueMessage({ type: 'error', value: l10n.t('Input is empty.') });
 			return;
@@ -110,9 +134,12 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'status', value: 'running' });
 
 		try {
-			const result = await runAnalyzer(mode, input);
-			this.enqueueMessage({ type: 'result', value: result });
-			this.enqueueMessage({ type: 'info', value: buildSuccessMessage(mode) });
+			const result = await runAnalyzer(mode, input, xlenMode);
+			this.enqueueMessage({ type: 'result', value: result.output });
+			this.enqueueMessage({
+				type: 'info',
+				value: buildSuccessMessage(mode, result.mode, result.detectedXlen)
+			});
 		} catch (error) {
 			const message = toErrorMessage(error);
 			this.enqueueMessage({ type: 'error', value: message });
@@ -193,6 +220,22 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				gap: 8px;
 				flex-wrap: wrap;
 			}
+			.controls-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.controls-row label {
+				font-weight: 600;
+			}
+			select {
+				padding: 4px 8px;
+				border-radius: 4px;
+				border: 1px solid var(--vscode-input-border);
+				background: var(--vscode-input-background);
+				color: var(--vscode-input-foreground);
+			}
 			.status-line {
 				min-height: 18px;
 				color: var(--vscode-descriptionForeground);
@@ -217,7 +260,13 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			clearedStatus: l10n.t('Cleared input and output.'),
 			runningStatus: l10n.t('Running...'),
 			processingLabel: l10n.t('Processing...'),
-			defaultError: l10n.t('An error occurred.')
+			defaultError: l10n.t('An error occurred.'),
+			xlenLabel: l10n.t('XLEN'),
+			xlenOptionAuto: l10n.t('Auto-detect'),
+			xlenOption32: l10n.t('Force 32-bit'),
+			xlenOption64: l10n.t('Force 64-bit'),
+			xlenOption128: l10n.t('Force 128-bit'),
+			xlenHint: l10n.t('Choose the register width for encoding and decoding.')
 		};
 
 		const scriptStrings = JSON.stringify({
@@ -237,18 +286,20 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			const copyButton = document.getElementById('copyButton');
 			const clearButton = document.getElementById('clearButton');
 			const statusLine = document.getElementById('statusLine');
+			const xlenSelect = document.getElementById('xlenSelect');
 
 			function setRunning(isRunning) {
 				runButton.disabled = isRunning;
 				copyButton.disabled = isRunning;
 				clearButton.disabled = isRunning;
+				xlenSelect.disabled = isRunning;
 				runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
 			}
 
 			runButton.addEventListener('click', event => {
 				event.preventDefault();
 				const mode = event.altKey ? 'disassemble' : 'assemble';
-				vscode.postMessage({ type: 'run', input: inputArea.value, mode });
+				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value });
 			});
 
 			copyButton.addEventListener('click', event => {
@@ -263,10 +314,14 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				statusLine.textContent = strings.clearedStatus;
 			});
 
+			xlenSelect.addEventListener('change', () => {
+				vscode.postMessage({ type: 'updateXlen', value: xlenSelect.value });
+			});
+
 			inputArea.addEventListener('keydown', event => {
 				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 					event.preventDefault();
-					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble' });
+					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value });
 				}
 			});
 
@@ -296,6 +351,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 					case 'info':
 						statusLine.textContent = message.value ?? '';
 						break;
+					case 'setXlen':
+						xlenSelect.value = message.value ?? 'auto';
+						break;
 					default:
 						break;
 				}
@@ -324,6 +382,16 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				<h2>${escapeHtml(uiStrings.outputHeading)}</h2>
 				<textarea id="outputArea" placeholder="${escapeAttribute(uiStrings.outputPlaceholder)}" readonly></textarea>
 			</section>
+			<div class="controls-row">
+				<label for="xlenSelect">${escapeHtml(uiStrings.xlenLabel)}</label>
+				<select id="xlenSelect">
+					<option value="auto">${escapeHtml(uiStrings.xlenOptionAuto)}</option>
+					<option value="32">${escapeHtml(uiStrings.xlenOption32)}</option>
+					<option value="64">${escapeHtml(uiStrings.xlenOption64)}</option>
+					<option value="128">${escapeHtml(uiStrings.xlenOption128)}</option>
+				</select>
+				<span class="hint">${escapeHtml(uiStrings.xlenHint)}</span>
+			</div>
 			<div class="button-row">
 				<button id="runButton" title="${escapeAttribute(uiStrings.runButtonHint)}">${escapeHtml(uiStrings.runButtonLabel)}</button>
 				<button id="copyButton">${escapeHtml(uiStrings.copyButtonLabel)}</button>
@@ -364,12 +432,30 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
-async function runAnalyzer(mode: AnalyzerMode, input: string): Promise<string> {
-	return mode === 'assemble' ? assemble(input) : disassemble(input);
+interface AnalyzerRunResult {
+	output: string;
+	detectedXlen: XLen;
+	mode: XLenMode;
 }
 
-function buildSuccessMessage(mode: AnalyzerMode): string {
-	return mode === 'assemble' ? l10n.t('Assembly completed.') : l10n.t('Disassembly completed.');
+async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection): Promise<AnalyzerRunResult> {
+	const xlenMode = selectionToXLenMode(selection);
+	const options: AnalyzerOptions = { xlen: xlenMode };
+	if (mode === 'assemble') {
+		const result = assembleDetailed(input, options);
+		return { output: result.output, detectedXlen: result.detectedXlen, mode: result.mode };
+	}
+	const result = disassembleDetailed(input, options);
+	return { output: result.output, detectedXlen: result.detectedXlen, mode: result.mode };
+}
+
+function buildSuccessMessage(mode: AnalyzerMode, xlenMode: XLenMode, detectedXlen: XLen): string {
+	const operation = mode === 'assemble' ? l10n.t('Assembly') : l10n.t('Disassembly');
+	const detail =
+		xlenMode === 'auto'
+			? l10n.t('auto-detected XLEN={0}', detectedXlen)
+			: l10n.t('forced XLEN={0}', xlenMode);
+	return l10n.t('{0} completed ({1}).', operation, detail);
 }
 
 function getActiveSelectionText(editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor): string | undefined {
@@ -389,6 +475,30 @@ function toErrorMessage(error: unknown): string {
 		return error.message;
 	}
 	return typeof error === 'string' ? error : l10n.t('Unknown error.');
+}
+
+function selectionToXLenMode(selection: XLenSelection): XLenMode {
+	switch (selection) {
+		case '32':
+			return 32;
+		case '64':
+			return 64;
+		case '128':
+			return 128;
+		default:
+			return 'auto';
+	}
+}
+
+function normalizeXlenSelection(value: string): XLenSelection {
+	switch (value) {
+		case '32':
+		case '64':
+		case '128':
+			return value;
+		default:
+			return 'auto';
+	}
 }
 
 function generateNonce(): string {

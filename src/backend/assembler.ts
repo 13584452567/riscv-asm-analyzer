@@ -1,16 +1,41 @@
 import { AnalyzerError } from './errors';
-import { instructionsByName, InstructionSpec } from './instruction-set';
+import { instructionsByName, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
+import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
 import { parseRegister } from './registers';
 import { formatHex, parseImmediate } from './utils';
 
-export function assemble(source: string): string {
-	const assembler = new Assembler();
-	const words = assembler.assemble(source);
-	return words.map(formatHex).join('\n');
+
+export interface AssembleDetailedResult extends AnalyzerResultBase {
+	output: string;
+	words: number[];
+}
+
+export function assemble(source: string, options?: AnalyzerOptions): string {
+	return assembleDetailed(source, options).output;
+}
+
+export function assembleDetailed(source: string, options?: AnalyzerOptions): AssembleDetailedResult {
+	const mode = options?.xlen ?? 'auto';
+	const assembler = new Assembler(mode);
+	const { words, detectedXlen } = assembler.assemble(source);
+	return {
+		output: words.map(formatHex).join('\n'),
+		words,
+		detectedXlen,
+		mode
+	};
 }
 
 class Assembler {
-	public assemble(source: string): number[] {
+	private readonly mode: XLenMode;
+	private detectedXlen: XLen;
+
+	constructor(mode: XLenMode) {
+		this.mode = mode;
+		this.detectedXlen = typeof mode === 'number' ? mode : 32;
+	}
+
+	public assemble(source: string): { words: number[]; detectedXlen: XLen } {
 		const lines = source.split(/\r?\n/);
 		const words: number[] = [];
 		for (let i = 0; i < lines.length; i += 1) {
@@ -23,7 +48,8 @@ class Assembler {
 			const word = this.assembleInstruction(mnemonic, operands, lineNumber);
 			words.push(word >>> 0);
 		}
-		return words;
+		const detected = this.mode === 'auto' ? this.detectedXlen : (this.mode as XLen);
+		return { words, detectedXlen: detected };
 	}
 
 	private assembleInstruction(mnemonic: string, operands: string[], line: number): number {
@@ -31,6 +57,7 @@ class Assembler {
 		if (!spec) {
 			throw new AnalyzerError(`Unsupported instruction '${mnemonic}'`, line);
 		}
+		this.ensureSupportedXlen(spec, line);
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
@@ -57,6 +84,22 @@ class Assembler {
 				return assembleCsrImmediate(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
+		}
+	}
+
+	private ensureSupportedXlen(spec: InstructionSpec, line: number): void {
+		const required = (spec.minXlen ?? 32) as XLen;
+		if (this.mode === 'auto') {
+			if (required > this.detectedXlen) {
+				this.detectedXlen = required;
+			}
+			return;
+		}
+		if (required > this.mode) {
+			throw new AnalyzerError(
+				`Instruction '${spec.name}' requires XLEN ≥ ${required}, but current mode is XLEN=${this.mode}`,
+				line
+			);
 		}
 	}
 }
