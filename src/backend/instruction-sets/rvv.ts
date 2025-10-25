@@ -15,7 +15,7 @@ const rvvConfigurationInstructions: InstructionSpec[] = [
 	{
 		name: 'vsetvl',
 		format: 'R',
-		opcode: 0b1000000,
+		opcode: 0b1010111,
 		funct3: 0b111,
 		operandPattern: 'rd_rs1_rs2',
 		minXlen: 32

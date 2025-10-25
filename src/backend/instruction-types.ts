@@ -8,7 +8,7 @@ export type InstructionFormat =
 	| 'FR'
 	| 'FI'
 	| 'FS'
-	| 'FR4'
+ 	| 'FR4'
 	| 'CR'
 	| 'CI'
 	| 'CSS'
