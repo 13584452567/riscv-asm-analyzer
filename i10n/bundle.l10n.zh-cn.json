@@ -53,6 +53,7 @@
   "Floating-Point Extension": "浮点扩展",
   "Single-Precision (RVF)": "单精度 (RVF)",
   "Double-Precision (RVD)": "双精度 (RVD)",
+  "Quad-Precision (RVQ)": "四精度 (RVQ)",
   "Auto-detect": "自动检测",
-  "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions.": "启用 RISC-V 浮点扩展 (RVF/RVD) 指令。"
+  "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions.": "启用 RISC-V 浮点扩展 (RVF/RVD/RVQ) 指令。"
 }

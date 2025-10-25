@@ -104,6 +104,8 @@ class Disassembler {
 			case 'rd_fs1':
 			case 'rd_fs1_fs2':
 				return decodeFloatRType(spec, word);
+			case 'fd_fs1_fs2_fs3':
+				return decodeFloatR4Type(spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -249,6 +251,16 @@ function decodeFloatRType(spec: InstructionSpec, word: number): string {
 		default:
 			return `${spec.name} <unsupported float operands>`;
 	}
+}
+
+function decodeFloatR4Type(spec: InstructionSpec, word: number): string {
+	const fd = (word >> 7) & 0x1f;
+	const fs1 = (word >> 15) & 0x1f;
+	const fs2 = (word >> 20) & 0x1f;
+	const fs3 = (word >> 27) & 0x1f;
+	return `${spec.name} ${formatFloatRegister(fd)}, ${formatFloatRegister(fs1)}, ${formatFloatRegister(
+		fs2
+	)}, ${formatFloatRegister(fs3)}`;
 }
 
 function decodeFloatIType(spec: InstructionSpec, word: number): string {

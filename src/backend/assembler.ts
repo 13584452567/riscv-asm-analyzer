@@ -94,6 +94,8 @@ class Assembler {
 			case 'rd_fs1':
 			case 'rd_fs1_fs2':
 				return assembleFloatRType(spec, operands, line);
+			case 'fd_fs1_fs2_fs3':
+				return assembleFloatR4Type(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -255,6 +257,25 @@ function assembleFloatRType(spec: InstructionSpec, operands: string[], line: num
 		(((rd | fd) & 0x1f) << 7) |
 		(spec.opcode & 0x7f)
 	);
+}
+
+function assembleFloatR4Type(spec: InstructionSpec, operands: string[], line: number): number {
+	if (operands.length !== 4) {
+		throw new AnalyzerError(`Expected 4 operands, got ${operands.length}`, line);
+	}
+	const fd = parseFloatRegister(operands[0], line);
+	const fs1 = parseFloatRegister(operands[1], line);
+	const fs2 = parseFloatRegister(operands[2], line);
+	const fs3 = parseFloatRegister(operands[3], line);
+
+	let word = 0;
+	word |= spec.opcode;
+	word |= fd << 7;
+	word |= spec.funct2! << 12;
+	word |= fs1 << 15;
+	word |= fs2 << 20;
+	word |= fs3 << 27;
+	return word;
 }
 
 function assembleFloatIType(spec: InstructionSpec, operands: string[], line: number): number {

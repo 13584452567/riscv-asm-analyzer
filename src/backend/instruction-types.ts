@@ -1,4 +1,14 @@
-export type InstructionFormat = 'R' | 'I' | 'S' | 'B' | 'U' | 'J' | 'FR' | 'FI' | 'FS';
+export type InstructionFormat =
+	| 'R'
+	| 'I'
+	| 'S'
+	| 'B'
+	| 'U'
+	| 'J'
+	| 'FR'
+	| 'FI'
+	| 'FS'
+	| 'FR4';
 
 export type OperandPattern =
 	| 'rd_rs1_rs2'
@@ -19,7 +29,8 @@ export type OperandPattern =
 	| 'fd_rs1'
 	| 'fs2_fs1_rs1'
 	| 'rd_fs1'
-	| 'rd_fs1_fs2';
+	| 'rd_fs1_fs2'
+	| 'fd_fs1_fs2_fs3';
 
 export type XLen = 32 | 64 | 128;
 export type XLenMode = 'auto' | XLen;
@@ -28,7 +39,9 @@ export interface InstructionSpec {
 	name: string;
 	format: InstructionFormat;
 	opcode: number;
+	funct2?: number;
 	funct3?: number;
+	funct6?: number;
 	funct7?: number;
 	operandPattern: OperandPattern;
 	immBits?: number;

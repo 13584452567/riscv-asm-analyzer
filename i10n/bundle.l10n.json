@@ -53,6 +53,7 @@
   "Floating-Point Extension": "Floating-Point Extension",
   "Single-Precision (RVF)": "Single-Precision (RVF)",
   "Double-Precision (RVD)": "Double-Precision (RVD)",
+  "Quad-Precision (RVQ)": "Quad-Precision (RVQ)",
   "Auto-detect": "Auto-detect",
-  "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions.": "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions."
+  "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions.": "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions."
 }
