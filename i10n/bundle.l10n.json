@@ -32,6 +32,10 @@
   "Embedded": "Embedded",
   "Standard": "Standard",
   "Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).": "Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).",
+  "Vector Extension": "Vector Extension",
+  "Disabled": "Disabled",
+  "Enabled": "Enabled",
+  "Enable RISC-V Vector Extension (RVA) instructions.": "Enable RISC-V Vector Extension (RVA) instructions.",
   "Assembly": "Assembly",
   "Disassembly": "Disassembly",
   "XLEN auto-detected as {0}": "XLEN auto-detected as {0}",
@@ -40,5 +44,7 @@
   "RISC-V {0} failed: {1}": "RISC-V {0} failed: {1}",
   "assembly": "assembly",
   "disassembly": "disassembly",
-  "Unknown error.": "Unknown error."
+  "Unknown error.": "Unknown error.",
+  "Atomic Extension": "Atomic Extension",
+  "Enable RISC-V Atomic Extension (RVA) instructions.": "Enable RISC-V Atomic Extension (RVA) instructions."
 }

@@ -81,9 +81,31 @@ export function parseRegister(token: string, isEmbedded: boolean = false): numbe
 	throw new Error(`Unknown register '${token}'`);
 }
 
-export function formatRegister(register: number): string {
-	if (Number.isInteger(register) && register >= 0 && register < 32) {
-		return `x${register}`;
+export function formatRegister(register: number, isEmbedded: boolean = false): string {
+	const names = isEmbedded ? eCanonicalNames : canonicalNames;
+	if (Number.isInteger(register) && register >= 0 && register < names.length) {
+		return names[register];
 	}
-	return `x${register & 0x1f}`;
+	return `x${register & (isEmbedded ? 0xf : 0x1f)}`;
+}
+
+export function parseFloatRegister(token: string): number {
+	const normalized = token.trim().toLowerCase();
+	if (!normalized) {
+		throw new Error('Missing float register operand');
+	}
+	if (normalized.startsWith('f')) {
+		const num = parseInt(normalized.slice(1), 10);
+		if (!isNaN(num) && num >= 0 && num < 32) {
+			return num;
+		}
+	}
+	throw new Error(`Unknown float register '${token}'`);
+}
+
+export function formatFloatRegister(register: number): string {
+	if (Number.isInteger(register) && register >= 0 && register < 32) {
+		return `f${register}`;
+	}
+	return `f${register & 0x1f}`;
 }

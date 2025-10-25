@@ -1,7 +1,7 @@
 import { AnalyzerError } from './errors';
 import { instructionsByOpcode, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
-import { formatRegister } from './registers';
+import { formatRegister, formatFloatRegister } from './registers';
 import { parseNumericLiteral, signExtend } from './utils';
 
 export interface DisassembleDetailedResult extends AnalyzerResultBase {
@@ -70,6 +70,7 @@ class Disassembler {
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
+			case 'rd_rs1':
 				return decodeRType(spec, word);
 			case 'rd_rs1_imm12':
 				return decodeIType(spec, word);
@@ -93,6 +94,16 @@ class Disassembler {
 				return decodeCsrImmediate(spec, word);
 			case 'rd_rs1_imm6':
 				return decodeIType(spec, word);
+			case 'fd_rs1':
+				return decodeFloatIType(spec, word);
+			case 'fs2_fs1_rs1':
+				return decodeFloatSType(spec, word);
+			case 'fd_fs1_fs2':
+			case 'fd_fs1':
+			case 'fd_rs1':
+			case 'rd_fs1':
+			case 'rd_fs1_fs2':
+				return decodeFloatRType(spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -211,7 +222,49 @@ function decodeRType(spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const rs2 = (word >> 20) & 0x1f;
-	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${formatRegister(rs2)}`;
+
+	if (spec.operandPattern === 'rd_rs1') {
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}`;
+	} else {
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${formatRegister(rs2)}`;
+	}
+}
+
+function decodeFloatRType(spec: InstructionSpec, word: number): string {
+	const fd = (word >> 7) & 0x1f;
+	const fs1 = (word >> 15) & 0x1f;
+	const fs2 = (word >> 20) & 0x1f;
+
+	switch (spec.operandPattern) {
+		case 'fd_fs1_fs2':
+			return `${spec.name} ${formatFloatRegister(fd)}, ${formatFloatRegister(fs1)}, ${formatFloatRegister(fs2)}`;
+		case 'fd_fs1':
+			return `${spec.name} ${formatFloatRegister(fd)}, ${formatFloatRegister(fs1)}`;
+		case 'fd_rs1':
+			return `${spec.name} ${formatFloatRegister(fd)}, ${formatRegister(fs1)}`;
+		case 'rd_fs1':
+			return `${spec.name} ${formatRegister(fd)}, ${formatFloatRegister(fs1)}`;
+		case 'rd_fs1_fs2':
+			return `${spec.name} ${formatRegister(fd)}, ${formatFloatRegister(fs1)}, ${formatFloatRegister(fs2)}`;
+		default:
+			return `${spec.name} <unsupported float operands>`;
+	}
+}
+
+function decodeFloatIType(spec: InstructionSpec, word: number): string {
+	const fd = (word >> 7) & 0x1f;
+	const rs1 = (word >> 15) & 0x1f;
+	const imm = signExtend((word >> 20) & 0xfff, 12);
+	return `${spec.name} ${formatFloatRegister(fd)}, ${imm}(${formatRegister(rs1)})`;
+}
+
+function decodeFloatSType(spec: InstructionSpec, word: number): string {
+	const fs2 = (word >> 20) & 0x1f;
+	const rs1 = (word >> 15) & 0x1f;
+	const imm7 = (word >> 25) & 0x7f;
+	const imm5 = (word >> 7) & 0x1f;
+	const imm = signExtend((imm7 << 5) | imm5, 12);
+	return `${spec.name} ${formatFloatRegister(fs2)}, ${imm}(${formatRegister(rs1)})`;
 }
 
 function decodeIType(spec: InstructionSpec, word: number): string {
@@ -324,3 +377,5 @@ function decodeCsrImmediate(spec: InstructionSpec, word: number): string {
 	const csr = (word >> 20) & 0xfff;
 	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${zimm}`;
 }
+
+

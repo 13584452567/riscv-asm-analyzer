@@ -32,6 +32,10 @@
   "Embedded": "嵌入式",
   "Standard": "标准",
   "Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).": "选择使用嵌入式架构（16 个寄存器）还是标准架构（32 个寄存器）。",
+  "Vector Extension": "向量扩展",
+  "Disabled": "禁用",
+  "Enabled": "启用",
+  "Enable RISC-V Vector Extension (RVA) instructions.": "启用 RISC-V 向量扩展 (RVA) 指令。",
   "Assembly": "汇编",
   "Disassembly": "反汇编",
   "XLEN auto-detected as {0}": "已自动检测 XLEN={0}",
@@ -40,5 +44,7 @@
   "RISC-V {0} failed: {1}": "RISC-V {0} 失败：{1}",
   "assembly": "汇编",
   "disassembly": "反汇编",
-  "Unknown error.": "未知错误。"
+  "Unknown error.": "未知错误。",
+  "Atomic Extension": "原子扩展",
+  "Enable RISC-V Atomic Extension (RVA) instructions.": "启用 RISC-V 原子扩展 (RVA) 指令。"
 }

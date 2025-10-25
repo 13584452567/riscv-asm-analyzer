@@ -6,7 +6,9 @@ import {
 	disassembleDetailed,
 	type AnalyzerOptions,
 	type XLenMode,
-	type XLen
+	type XLen,
+	type AssembleDetailedResult,
+	type DisassembleDetailedResult
 } from './backend';
 
 const { l10n } = vscode;
@@ -22,7 +24,9 @@ type OutboundMessage =
 	| { type: 'error'; value: string }
 	| { type: 'info'; value: string }
 	| { type: 'setXlen'; value: XLenSelection }
-	| { type: 'setEmbedded'; value: boolean };
+	| { type: 'setEmbedded'; value: boolean }
+	| { type: 'setVectorEnabled'; value: boolean }
+	| { type: 'setFloatEnabled'; value: boolean };
 
 interface RunRequestMessage {
 	type: 'run';
@@ -30,6 +34,8 @@ interface RunRequestMessage {
 	mode: AnalyzerMode;
 	xlen: XLenSelection;
 	isEmbedded: boolean;
+	vectorEnabled: boolean;
+	floatEnabled: boolean;
 }
 
 interface CopyRequestMessage {
@@ -51,7 +57,17 @@ interface UpdateEmbeddedMessage {
 	value: boolean;
 }
 
-type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage | UpdateEmbeddedMessage;
+interface UpdateVectorMessage {
+	type: 'updateVector';
+	value: boolean;
+}
+
+interface UpdateFloatMessage {
+	type: 'updateFloat';
+	value: boolean;
+}
+
+type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage | UpdateEmbeddedMessage | UpdateVectorMessage | UpdateFloatMessage;
 
 class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'riscvAsmAnalyzer.view';
@@ -62,6 +78,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	private readonly viewReady: Promise<void>;
 	private xlenMode: XLenSelection = 'auto';
 	private isEmbedded: boolean = false;
+	private vectorEnabled: boolean = false;
+	private floatEnabled: boolean = false;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		this.viewReady = new Promise(resolve => {
@@ -102,6 +120,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
 		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
 		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
+		this.enqueueMessage({ type: 'setVectorEnabled', value: this.vectorEnabled });
 	}
 
 	private enqueueMessage(message: OutboundMessage): void {
@@ -118,7 +137,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				const xlenMode = normalizeXlenSelection(message.xlen);
 				this.xlenMode = xlenMode;
 				this.isEmbedded = message.isEmbedded;
-				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded);
+				this.vectorEnabled = message.vectorEnabled;
+				this.floatEnabled = message.floatEnabled;
+				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded, message.vectorEnabled, message.floatEnabled);
 				break;
 			}
 			case 'copy':
@@ -133,12 +154,18 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			case 'updateEmbedded':
 				this.isEmbedded = message.value;
 				break;
+			case 'updateVector':
+				this.vectorEnabled = message.value;
+				break;
+			case 'updateFloat':
+				this.floatEnabled = message.value;
+				break;
 			default:
 				break;
 		}
 	}
 
-	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection, isEmbedded: boolean): Promise<void> {
+	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection, isEmbedded: boolean, vectorEnabled: boolean, floatEnabled: boolean): Promise<void> {
 		if (!input.trim()) {
 			this.enqueueMessage({ type: 'error', value: l10n.t('Input is empty.') });
 			return;
@@ -147,7 +174,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'status', value: 'running' });
 
 		try {
-			const result = await runAnalyzer(mode, input, xlenMode, isEmbedded);
+			const result = await runAnalyzer(mode, input, xlenMode, isEmbedded, vectorEnabled, floatEnabled);
 			this.enqueueMessage({ type: 'result', value: result.output });
 			this.enqueueMessage({
 				type: 'info',
@@ -283,7 +310,15 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			embeddedLabel: l10n.t('Embedded'),
 			embeddedOptionStandard: l10n.t('Standard'),
 			embeddedOptionEmbedded: l10n.t('Embedded'),
-			embeddedHint: l10n.t('Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).')
+			embeddedHint: l10n.t('Choose whether to use embedded architecture (16 registers) or standard architecture (32 registers).'),
+			vectorLabel: l10n.t('Atomic Extension'),
+			vectorOptionDisabled: l10n.t('Disabled'),
+			vectorOptionEnabled: l10n.t('Enabled'),
+			vectorHint: l10n.t('Enable RISC-V Atomic Extension (RVA) instructions.'),
+			floatLabel: l10n.t('Floating-Point Extension'),
+			floatOptionDisabled: l10n.t('Disabled'),
+			floatOptionEnabled: l10n.t('Enabled'),
+			floatHint: l10n.t('Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.')
 		};
 
 		const scriptStrings = JSON.stringify({
@@ -305,6 +340,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			const statusLine = document.getElementById('statusLine');
 			const xlenSelect = document.getElementById('xlenSelect');
 			const embeddedSelect = document.getElementById('embeddedSelect');
+			const vectorSelect = document.getElementById('vectorSelect');
+			const floatSelect = document.getElementById('floatSelect');
 
 			function setRunning(isRunning) {
 				runButton.disabled = isRunning;
@@ -312,6 +349,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				clearButton.disabled = isRunning;
 				xlenSelect.disabled = isRunning;
 				embeddedSelect.disabled = isRunning;
+				vectorSelect.disabled = isRunning;
+				floatSelect.disabled = isRunning;
 				runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
 			}
 
@@ -319,7 +358,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				event.preventDefault();
 				const mode = event.altKey ? 'disassemble' : 'assemble';
 				const isEmbedded = embeddedSelect.value === 'true';
-				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded });
+				const vectorEnabled = vectorSelect.value === 'true';
+				const floatEnabled = floatSelect.value === 'true';
+				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled });
 			});
 
 			copyButton.addEventListener('click', event => {
@@ -343,11 +384,23 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				vscode.postMessage({ type: 'updateEmbedded', value: isEmbedded });
 			});
 
+			vectorSelect.addEventListener('change', () => {
+				const vectorEnabled = vectorSelect.value === 'true';
+				vscode.postMessage({ type: 'updateVector', value: vectorEnabled });
+			});
+
+			floatSelect.addEventListener('change', () => {
+				const floatEnabled = floatSelect.value === 'true';
+				vscode.postMessage({ type: 'updateFloat', value: floatEnabled });
+			});
+
 			inputArea.addEventListener('keydown', event => {
 				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 					event.preventDefault();
 					const isEmbedded = embeddedSelect.value === 'true';
-					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded });
+					const vectorEnabled = vectorSelect.value === 'true';
+					const floatEnabled = floatSelect.value === 'true';
+					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled });
 				}
 			});
 
@@ -382,6 +435,12 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 						break;
 					case 'setEmbedded':
 						embeddedSelect.value = message.value ? 'true' : 'false';
+						break;
+					case 'setVectorEnabled':
+						vectorSelect.value = message.value ? 'true' : 'false';
+						break;
+					case 'setFloatEnabled':
+						floatSelect.value = message.value ? 'true' : 'false';
 						break;
 					default:
 						break;
@@ -429,6 +488,22 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				</select>
 				<span class="hint">${escapeHtml(uiStrings.embeddedHint)}</span>
 			</div>
+			<div class="controls-row">
+				<label for="vectorSelect">${escapeHtml(uiStrings.vectorLabel)}</label>
+				<select id="vectorSelect">
+					<option value="false">${escapeHtml(uiStrings.vectorOptionDisabled)}</option>
+					<option value="true">${escapeHtml(uiStrings.vectorOptionEnabled)}</option>
+				</select>
+				<span class="hint">${escapeHtml(uiStrings.vectorHint)}</span>
+			</div>
+			<div class="controls-row">
+				<label for="floatSelect">${escapeHtml(uiStrings.floatLabel)}</label>
+				<select id="floatSelect">
+					<option value="false">${escapeHtml(uiStrings.floatOptionDisabled)}</option>
+					<option value="true">${escapeHtml(uiStrings.floatOptionEnabled)}</option>
+				</select>
+				<span class="hint">${escapeHtml(uiStrings.floatHint)}</span>
+			</div>
 			<div class="button-row">
 				<button id="runButton" title="${escapeAttribute(uiStrings.runButtonHint)}">${escapeHtml(uiStrings.runButtonLabel)}</button>
 				<button id="copyButton">${escapeHtml(uiStrings.copyButtonLabel)}</button>
@@ -475,9 +550,9 @@ interface AnalyzerRunResult {
 	mode: XLenMode;
 }
 
-async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection, isEmbedded: boolean = false): Promise<AnalyzerRunResult> {
+async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection, isEmbedded: boolean = false, vectorEnabled: boolean = false, floatEnabled: boolean = false): Promise<AnalyzerRunResult> {
 	const xlenMode = selectionToXLenMode(selection);
-	const options: AnalyzerOptions = { xlen: xlenMode, isEmbedded };
+	const options: AnalyzerOptions = { xlen: xlenMode, isEmbedded, vectorEnabled, floatEnabled };
 	if (mode === 'assemble') {
 		const result = assembleDetailed(input, options);
 		return { output: result.output, detectedXlen: result.detectedXlen, mode: result.mode };

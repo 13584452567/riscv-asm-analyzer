@@ -1,7 +1,7 @@
 import { AnalyzerError } from './errors';
 import { instructionsByName, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
-import { parseRegister } from './registers';
+import { parseRegister, parseFloatRegister } from './registers';
 import { formatHex, parseImmediate } from './utils';
 
 
@@ -64,6 +64,7 @@ class Assembler {
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
+			case 'rd_rs1':
 				return assembleRType(spec, operands, line, this.isEmbedded);
 			case 'rd_rs1_imm12':
 				return assembleIType(spec, operands, line, this.isEmbedded);
@@ -87,6 +88,12 @@ class Assembler {
 				return assembleCsrImmediate(spec, operands, line, this.isEmbedded);
 			case 'rd_rs1_imm6':
 				return assembleIType(spec, operands, line, this.isEmbedded);
+			case 'fd_fs1_fs2':
+			case 'fd_fs1':
+			case 'fd_rs1':
+			case 'rd_fs1':
+			case 'rd_fs1_fs2':
+				return assembleFloatRType(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -163,11 +170,32 @@ function parseRegisterOperand(token: string, role: string, line: number, isEmbed
 	}
 }
 
+function parseFloatRegisterOperand(token: string, role: string, line: number): number {
+	try {
+		return parseFloatRegister(token);
+	} catch (error) {
+		if (error instanceof AnalyzerError) {
+			throw error;
+		}
+		throw new AnalyzerError(`Invalid ${role} float register '${token}'`, line);
+	}
+}
+
 function assembleRType(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
-	ensureOperandCount(operands, 3, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
-	const rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
-	const rs2 = parseRegisterOperand(operands[2], 'rs2', line, isEmbedded);
+	let rd = 0, rs1 = 0, rs2 = 0;
+
+	if (spec.operandPattern === 'rd_rs1') {
+		ensureOperandCount(operands, 2, line, spec.name);
+		rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+		rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
+		rs2 = 0; // rs2 is ignored for LR instructions
+	} else {
+		ensureOperandCount(operands, 3, line, spec.name);
+		rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+		rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
+		rs2 = parseRegisterOperand(operands[2], 'rs2', line, isEmbedded);
+	}
+
 	if (spec.funct3 === undefined || spec.funct7 === undefined) {
 		throw new AnalyzerError(`Missing funct fields for '${spec.name}'`, line);
 	}
@@ -177,6 +205,85 @@ function assembleRType(spec: InstructionSpec, operands: string[], line: number, 
 		((rs1 & 0x1f) << 15) |
 		((spec.funct3 & 0x7) << 12) |
 		((rd & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleFloatRType(spec: InstructionSpec, operands: string[], line: number): number {
+	let fd = 0, fs1 = 0, fs2 = 0, rs1 = 0, rd = 0;
+
+	switch (spec.operandPattern) {
+		case 'fd_fs1_fs2':
+			ensureOperandCount(operands, 3, line, spec.name);
+			fd = parseFloatRegisterOperand(operands[0], 'fd', line);
+			fs1 = parseFloatRegisterOperand(operands[1], 'fs1', line);
+			fs2 = parseFloatRegisterOperand(operands[2], 'fs2', line);
+			break;
+		case 'fd_fs1':
+			ensureOperandCount(operands, 2, line, spec.name);
+			fd = parseFloatRegisterOperand(operands[0], 'fd', line);
+			fs1 = parseFloatRegisterOperand(operands[1], 'fs1', line);
+			break;
+		case 'fd_rs1':
+			ensureOperandCount(operands, 2, line, spec.name);
+			fd = parseFloatRegisterOperand(operands[0], 'fd', line);
+			rs1 = parseRegisterOperand(operands[1], 'rs1', line, false);
+			break;
+		case 'rd_fs1':
+			ensureOperandCount(operands, 2, line, spec.name);
+			rd = parseRegisterOperand(operands[0], 'rd', line, false);
+			fs1 = parseFloatRegisterOperand(operands[1], 'fs1', line);
+			break;
+		case 'rd_fs1_fs2':
+			ensureOperandCount(operands, 3, line, spec.name);
+			rd = parseRegisterOperand(operands[0], 'rd', line, false);
+			fs1 = parseFloatRegisterOperand(operands[1], 'fs1', line);
+			fs2 = parseFloatRegisterOperand(operands[2], 'fs2', line);
+			break;
+		default:
+			throw new AnalyzerError(`Unsupported float operand pattern for '${spec.name}'`, line);
+	}
+
+	if (spec.funct3 === undefined || spec.funct7 === undefined) {
+		throw new AnalyzerError(`Missing funct fields for '${spec.name}'`, line);
+	}
+	return (
+		((spec.funct7 & 0x7f) << 25) |
+		((fs2 & 0x1f) << 20) |
+		((fs1 & 0x1f) << 15) |
+		((spec.funct3 & 0x7) << 12) |
+		(((rd | fd) & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleFloatIType(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 3, line, spec.name);
+	const fd = parseFloatRegisterOperand(operands[0], 'fd', line);
+	const rs1 = parseRegisterOperand(operands[1], 'rs1', line, false);
+	const imm = parseImmediate(operands[2], { bits: 12, signed: true, line, label: 'offset' });
+	return (
+		((imm & 0xfff) << 20) |
+		((rs1 & 0x1f) << 15) |
+		((spec.funct3! & 0x7) << 12) |
+		((fd & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleFloatSType(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 3, line, spec.name);
+	const fs2 = parseFloatRegisterOperand(operands[0], 'fs2', line);
+	const rs1 = parseRegisterOperand(operands[2], 'rs1', line, false);
+	const imm = parseImmediate(operands[1], { bits: 12, signed: true, line, label: 'offset' });
+	const imm11_5 = (imm >> 5) & 0x7f;
+	const imm4_0 = imm & 0x1f;
+	return (
+		((imm11_5 & 0x7f) << 25) |
+		((fs2 & 0x1f) << 20) |
+		((rs1 & 0x1f) << 15) |
+		((spec.funct3! & 0x7) << 12) |
+		((imm4_0 & 0x1f) << 7) |
 		(spec.opcode & 0x7f)
 	);
 }
@@ -409,3 +516,6 @@ function parseMemoryOperand(token: string, line: number, isEmbedded: boolean): {
 	const base = parseRegisterOperand(baseToken, 'base', line, isEmbedded);
 	return { base, offset };
 }
+
+
+
