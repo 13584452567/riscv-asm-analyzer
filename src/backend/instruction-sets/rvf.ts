@@ -71,6 +71,33 @@ const floatingPointArithmeticInstructions: InstructionSpec[] = [
 		minXlen: 32
 	},
 	{
+		name: 'fsgnj.s',
+		format: 'FR',
+		opcode: 0b1010011,
+		funct7: 0b0010000,
+		funct3: 0b000,
+		operandPattern: 'fd_fs1_fs2',
+		minXlen: 32
+	},
+	{
+		name: 'fsgnjn.s',
+		format: 'FR',
+		opcode: 0b1010011,
+		funct7: 0b0010000,
+		funct3: 0b001,
+		operandPattern: 'fd_fs1_fs2',
+		minXlen: 32
+	},
+	{
+		name: 'fsgnjx.s',
+		format: 'FR',
+		opcode: 0b1010011,
+		funct7: 0b0010000,
+		funct3: 0b010,
+		operandPattern: 'fd_fs1_fs2',
+		minXlen: 32
+	},
+	{
 		name: 'fmin.s',
 		format: 'FR',
 		opcode: 0b1010011,

@@ -24,7 +24,6 @@
   "Cleared input and output.": "Cleared input and output.",
   "An error occurred.": "An error occurred.",
   "XLEN": "XLEN",
-  "Auto-detect": "Auto-detect",
   "32-bit mode": "32-bit",
   "64-bit mode": "64-bit",
   "128-bit mode": "128-bit",
@@ -46,5 +45,14 @@
   "disassembly": "disassembly",
   "Unknown error.": "Unknown error.",
   "Atomic Extension": "Atomic Extension",
-  "Enable RISC-V Atomic Extension (RVA) instructions.": "Enable RISC-V Atomic Extension (RVA) instructions."
+  "Enable RISC-V Atomic Extension (RVA) instructions.": "Enable RISC-V Atomic Extension (RVA) instructions.",
+  "Single-Precision Floating-Point Extension": "Single-Precision Floating-Point Extension",
+  "Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.": "Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.",
+  "Double-Precision Floating-Point Extension": "Double-Precision Floating-Point Extension",
+  "Enable RISC-V Double-Precision Floating-Point Extension (RVD) instructions.": "Enable RISC-V Double-Precision Floating-Point Extension (RVD) instructions.",
+  "Floating-Point Extension": "Floating-Point Extension",
+  "Single-Precision (RVF)": "Single-Precision (RVF)",
+  "Double-Precision (RVD)": "Double-Precision (RVD)",
+  "Auto-detect": "Auto-detect",
+  "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions.": "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions."
 }

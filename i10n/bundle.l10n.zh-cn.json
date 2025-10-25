@@ -24,7 +24,6 @@
   "Cleared input and output.": "已清空输入与输出。",
   "An error occurred.": "发生错误。",
   "XLEN": "XLEN",
-  "Auto-detect": "自动检测",
   "32-bit mode": "32 位",
   "64-bit mode": "64 位",
   "128-bit mode": "128 位",
@@ -46,5 +45,14 @@
   "disassembly": "反汇编",
   "Unknown error.": "未知错误。",
   "Atomic Extension": "原子扩展",
-  "Enable RISC-V Atomic Extension (RVA) instructions.": "启用 RISC-V 原子扩展 (RVA) 指令。"
+  "Enable RISC-V Atomic Extension (RVA) instructions.": "启用 RISC-V 原子扩展 (RVA) 指令。",
+  "Single-Precision Floating-Point Extension": "单精度浮点扩展",
+  "Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.": "启用 RISC-V 单精度浮点扩展 (RVF) 指令。",
+  "Double-Precision Floating-Point Extension": "双精度浮点扩展",
+  "Enable RISC-V Double-Precision Floating-Point Extension (RVD) instructions.": "启用 RISC-V 双精度浮点扩展 (RVD) 指令。",
+  "Floating-Point Extension": "浮点扩展",
+  "Single-Precision (RVF)": "单精度 (RVF)",
+  "Double-Precision (RVD)": "双精度 (RVD)",
+  "Auto-detect": "自动检测",
+  "Enable RISC-V Floating-Point Extensions (RVF/RVD) instructions.": "启用 RISC-V 浮点扩展 (RVF/RVD) 指令。"
 }
