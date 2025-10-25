@@ -82,6 +82,8 @@ class Assembler {
 				return assembleCsrRegister(spec, operands, line);
 			case 'rd_csr_imm5':
 				return assembleCsrImmediate(spec, operands, line);
+			case 'rd_rs1_imm6':
+				return assembleIType(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}

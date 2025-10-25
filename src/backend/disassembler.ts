@@ -91,6 +91,8 @@ class Disassembler {
 				return decodeCsrRegister(spec, word);
 			case 'rd_csr_imm5':
 				return decodeCsrImmediate(spec, word);
+			case 'rd_rs1_imm6':
+				return decodeIType(spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}

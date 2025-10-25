@@ -220,4 +220,20 @@ describe('RISC-V disassembler backend', () => {
 		assert.strictEqual(lines.length, 3);
 		assert.strictEqual(lines[0], 'addi x5, x0, 8');
 	});
+
+	it('assembles and disassembles B-extension instructions', () => {
+		const instructions = [
+			{ asm: 'clz x1, x2', hex: '0x60011093' },
+			{ asm: 'cpopw x3, x4', hex: '0x6022119b' },
+			{ asm: 'rori x5, x6, 31', hex: '0x61f35293' },
+			{ asm: 'bseti x7, x8, 5', hex: '0x20541393' }
+		];
+
+		for (const { asm, hex } of instructions) {
+			const assembled = assemble(asm, { xlen: 64 });
+			assert.strictEqual(assembled, hex, `Failed to assemble ${asm}`);
+			const disassembled = disassemble(hex, { xlen: 64 });
+			assert.strictEqual(disassembled, asm, `Failed to disassemble ${hex}`);
+		}
+	});
 });

@@ -11,7 +11,8 @@ export type OperandPattern =
 	| 'none'
 	| 'fence'
 	| 'rd_csr_rs1'
-	| 'rd_csr_imm5';
+	| 'rd_csr_imm5'
+	| 'rd_rs1_imm6';
 
 export type XLen = 32 | 64 | 128;
 export type XLenMode = 'auto' | XLen;
