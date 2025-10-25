@@ -108,6 +108,14 @@ function disassembleWord(word: number, line: number): string {
 			return decodeUType(spec, word);
 		case 'rd_jump':
 			return decodeJump(spec, word);
+		case 'none':
+			return decodeZeroOperand(spec);
+		case 'fence':
+			return decodeFence(spec, word);
+		case 'rd_csr_rs1':
+			return decodeCsrRegister(spec, word);
+		case 'rd_csr_imm5':
+			return decodeCsrImmediate(spec, word);
 		default:
 			throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 	}
@@ -126,6 +134,12 @@ function matchesSpec(spec: InstructionSpec, word: number): boolean {
 		// No current I-type encodings rely on funct7, provided for future-proofing.
 		return spec.funct7 === funct7;
 	}
+	if (spec.fixedImmediate !== undefined) {
+		const imm = (word >> 20) & 0xfff;
+		if ((imm & ((1 << (spec.immBits ?? 12)) - 1)) !== (spec.fixedImmediate & ((1 << (spec.immBits ?? 12)) - 1))) {
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -140,7 +154,15 @@ function decodeIType(spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = (word >> 20) & 0xfff;
-	const imm = signExtend(immRaw, spec.immBits ?? 12);
+	let imm: number;
+	if (spec.immBits !== undefined && spec.immBits < 12) {
+		const mask = (1 << spec.immBits) - 1;
+		imm = immRaw & mask;
+	} else if (spec.unsignedImmediate) {
+		imm = immRaw;
+	} else {
+		imm = signExtend(immRaw, spec.immBits ?? 12);
+	}
 	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${imm}`;
 }
 
@@ -187,4 +209,54 @@ function decodeJump(spec: InstructionSpec, word: number): string {
 	let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
 	imm = signExtend(imm, spec.immBits ?? 21);
 	return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+}
+
+function decodeZeroOperand(spec: InstructionSpec): string {
+	return spec.name;
+}
+
+function decodeFence(spec: InstructionSpec, word: number): string {
+	const imm = (word >> 20) & 0xfff;
+	const pred = imm & 0xf;
+	const succ = (imm >> 4) & 0xf;
+	const fm = (imm >> 8) & 0x7;
+	const predStr = formatFenceMask(pred);
+	const succStr = formatFenceMask(succ);
+	if (pred === 0xf && succ === 0xf && fm === ((spec.fixedImmediate ?? 0) >> 8)) {
+		return `${spec.name}`;
+	}
+	return `${spec.name} ${predStr}, ${succStr}`;
+}
+
+function formatFenceMask(mask: number): string {
+	if (mask === 0) {
+		return '0';
+	}
+	const symbols: [number, string][] = [
+		[0x8, 'i'],
+		[0x4, 'o'],
+		[0x2, 'r'],
+		[0x1, 'w']
+	];
+	let result = '';
+	for (const [bit, label] of symbols) {
+		if ((mask & bit) !== 0) {
+			result += label;
+		}
+	}
+	return result;
+}
+
+function decodeCsrRegister(spec: InstructionSpec, word: number): string {
+	const rd = (word >> 7) & 0x1f;
+	const rs1 = (word >> 15) & 0x1f;
+	const csr = (word >> 20) & 0xfff;
+	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${formatRegister(rs1)}`;
+}
+
+function decodeCsrImmediate(spec: InstructionSpec, word: number): string {
+	const rd = (word >> 7) & 0x1f;
+	const zimm = (word >> 15) & 0x1f;
+	const csr = (word >> 20) & 0xfff;
+	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${zimm}`;
 }

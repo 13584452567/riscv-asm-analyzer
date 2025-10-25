@@ -1,7 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { spawn } from 'child_process';
 import { assemble, disassemble } from './backend';
 
 const { l10n } = vscode;
@@ -366,18 +365,7 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {}
 
 async function runAnalyzer(mode: AnalyzerMode, input: string): Promise<string> {
-	const config = vscode.workspace.getConfiguration('riscvAsmAnalyzer');
-	const cliPath = (config.get<string>('cliPath') || '').trim();
-	const additionalArgs = config.get<string[]>('defaultArgs') || [];
-
-	if (!cliPath) {
-		return mode === 'assemble' ? assemble(input) : disassemble(input);
-	}
-
-	const args = [...additionalArgs];
-	args.push(mode === 'assemble' ? '--assemble' : '--disassemble');
-
-	return invokeCli(cliPath, args, input);
+	return mode === 'assemble' ? assemble(input) : disassemble(input);
 }
 
 function buildSuccessMessage(mode: AnalyzerMode): string {

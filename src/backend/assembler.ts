@@ -47,6 +47,14 @@ class Assembler {
 				return assembleUType(spec, operands, line);
 			case 'rd_jump':
 				return assembleJump(spec, operands, line);
+			case 'none':
+				return assembleZeroOperand(spec, operands, line);
+			case 'fence':
+				return assembleFence(spec, operands, line);
+			case 'rd_csr_rs1':
+				return assembleCsrRegister(spec, operands, line);
+			case 'rd_csr_imm5':
+				return assembleCsrImmediate(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -136,13 +144,16 @@ function assembleIType(spec: InstructionSpec, operands: string[], line: number):
 		label: 'immediate'
 	});
 	const immMask = (1 << (spec.immBits ?? 12)) - 1;
-	return (
+	let word =
 		((imm & immMask) << 20) |
 		((rs1 & 0x1f) << 15) |
 		(((spec.funct3 ?? 0) & 0x7) << 12) |
 		((rd & 0x1f) << 7) |
-		(spec.opcode & 0x7f)
-	);
+		(spec.opcode & 0x7f);
+	if (spec.funct7 !== undefined) {
+		word |= (spec.funct7 & 0x7f) << 25;
+	}
+	return word;
 }
 
 function assembleLoad(spec: InstructionSpec, operands: string[], line: number): number {
@@ -244,6 +255,94 @@ function assembleJump(spec: InstructionSpec, operands: string[], line: number): 
 		(imm10_1 << 21) |
 		(imm11 << 20) |
 		(imm19_12 << 12) |
+		((rd & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleZeroOperand(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 0, line, spec.name);
+	const immBits = spec.immBits ?? 12;
+	const immMask = (1 << immBits) - 1;
+	const imm = (spec.fixedImmediate ?? 0) & immMask;
+	return (
+		(imm << 20) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleFence(spec: InstructionSpec, operands: string[], line: number): number {
+	if (operands.length !== 0 && operands.length !== 2) {
+		throw new AnalyzerError(`Expected 0 or 2 operand(s) for ${spec.name}, received ${operands.length}`, line);
+	}
+	let predMask = 0xf;
+	let succMask = 0xf;
+	if (operands.length === 2) {
+		predMask = parseFenceMask(operands[0], line);
+		succMask = parseFenceMask(operands[1], line);
+	}
+	const immBits = spec.immBits ?? 12;
+	const immMask = (1 << immBits) - 1;
+	const baseImm = spec.fixedImmediate ?? 0;
+	const imm = (baseImm | ((succMask & 0xf) << 4) | (predMask & 0xf)) & immMask;
+	return (
+		(imm << 20) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function parseFenceMask(token: string, line: number): number {
+	const normalized = token.trim().toLowerCase();
+	if (normalized === '0') {
+		return 0;
+	}
+	let mask = 0;
+	for (const ch of normalized) {
+		switch (ch) {
+			case 'i':
+				mask |= 0x8;
+				break;
+			case 'o':
+				mask |= 0x4;
+				break;
+			case 'r':
+				mask |= 0x2;
+				break;
+			case 'w':
+				mask |= 0x1;
+				break;
+			default:
+				throw new AnalyzerError(`Invalid fence operand '${token}'`, line);
+		}
+	}
+	return mask;
+}
+
+function assembleCsrRegister(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 3, line, spec.name);
+	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const csr = parseImmediate(operands[1], { bits: 12, signed: false, line, label: 'csr' });
+	const rs1 = parseRegisterOperand(operands[2], 'rs1', line);
+	return (
+		((csr & 0xfff) << 20) |
+		((rs1 & 0x1f) << 15) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
+		((rd & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleCsrImmediate(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 3, line, spec.name);
+	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const csr = parseImmediate(operands[1], { bits: 12, signed: false, line, label: 'csr' });
+	const zimm = parseImmediate(operands[2], { bits: 5, signed: false, line, label: 'immediate' });
+	return (
+		((csr & 0xfff) << 20) |
+		((zimm & 0x1f) << 15) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
 		((rd & 0x1f) << 7) |
 		(spec.opcode & 0x7f)
 	);

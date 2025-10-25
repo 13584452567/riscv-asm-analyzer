@@ -7,7 +7,11 @@ export type OperandPattern =
 	| 'rs2_mem'
 	| 'rs1_rs2_branch'
 	| 'rd_imm20'
-	| 'rd_jump';
+	| 'rd_jump'
+	| 'none'
+	| 'fence'
+	| 'rd_csr_rs1'
+	| 'rd_csr_imm5';
 
 export interface InstructionSpec {
 	name: string;
@@ -18,4 +22,5 @@ export interface InstructionSpec {
 	operandPattern: OperandPattern;
 	immBits?: number;
 	unsignedImmediate?: boolean;
+	fixedImmediate?: number;
 }
