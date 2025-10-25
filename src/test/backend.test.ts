@@ -236,4 +236,18 @@ describe('RISC-V disassembler backend', () => {
 			assert.strictEqual(disassembled, asm, `Failed to disassemble ${hex}`);
 		}
 	});
+
+	it('assembles and disassembles RV128I instructions', () => {
+		const instructions = [
+			{ asm: 'lq x1, 0(x2)', hex: '0x00014083' },
+			{ asm: 'sq x3, 32(x4)', hex: '0x02324023' }
+		];
+
+		for (const { asm, hex } of instructions) {
+			const assembled = assemble(asm, { xlen: 128 });
+			assert.strictEqual(assembled, hex, `Failed to assemble ${asm}`);
+			const disassembled = disassemble(hex, { xlen: 128 });
+			assert.strictEqual(disassembled, asm, `Failed to disassemble ${hex}`);
+		}
+	});
 });

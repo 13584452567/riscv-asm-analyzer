@@ -3,6 +3,7 @@ import { rv32iInstructions } from './instruction-sets/rv32i';
 import { rv64iInstructions } from './instruction-sets/rv64i';
 import { rv32mInstructions, rv64mInstructions } from './instruction-sets/rvm';
 import { rvbInstructions } from './instruction-sets/rvb';
+import { rv128iInstructions } from './instruction-sets/rv128i';
 
 export { InstructionFormat, OperandPattern, InstructionSpec, XLen, XLenMode } from './instruction-types';
 
@@ -11,7 +12,8 @@ const instructionGroups: InstructionSpec[][] = [
 	rv32mInstructions,
 	rv64iInstructions,
 	rv64mInstructions,
-	rvbInstructions
+	rvbInstructions,
+	rv128iInstructions
 ];
 
 export const instructionSet: InstructionSpec[] = instructionGroups.flat();
