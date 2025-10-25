@@ -16,7 +16,8 @@ export function assemble(source: string, options?: AnalyzerOptions): string {
 
 export function assembleDetailed(source: string, options?: AnalyzerOptions): AssembleDetailedResult {
 	const mode = options?.xlen ?? 'auto';
-	const assembler = new Assembler(mode);
+	const isEmbedded = options?.isEmbedded ?? false;
+	const assembler = new Assembler(mode, isEmbedded);
 	const { words, detectedXlen } = assembler.assemble(source);
 	return {
 		output: words.map(formatHex).join('\n'),
@@ -28,10 +29,12 @@ export function assembleDetailed(source: string, options?: AnalyzerOptions): Ass
 
 class Assembler {
 	private readonly mode: XLenMode;
+	private readonly isEmbedded: boolean;
 	private detectedXlen: XLen;
 
-	constructor(mode: XLenMode) {
+	constructor(mode: XLenMode, isEmbedded: boolean = false) {
 		this.mode = mode;
+		this.isEmbedded = isEmbedded;
 		this.detectedXlen = typeof mode === 'number' ? mode : 32;
 	}
 
@@ -61,29 +64,29 @@ class Assembler {
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
-				return assembleRType(spec, operands, line);
+				return assembleRType(spec, operands, line, this.isEmbedded);
 			case 'rd_rs1_imm12':
-				return assembleIType(spec, operands, line);
+				return assembleIType(spec, operands, line, this.isEmbedded);
 			case 'rd_mem':
-				return assembleLoad(spec, operands, line);
+				return assembleLoad(spec, operands, line, this.isEmbedded);
 			case 'rs2_mem':
-				return assembleStore(spec, operands, line);
+				return assembleStore(spec, operands, line, this.isEmbedded);
 			case 'rs1_rs2_branch':
-				return assembleBranch(spec, operands, line);
+				return assembleBranch(spec, operands, line, this.isEmbedded);
 			case 'rd_imm20':
-				return assembleUType(spec, operands, line);
+				return assembleUType(spec, operands, line, this.isEmbedded);
 			case 'rd_jump':
-				return assembleJump(spec, operands, line);
+				return assembleJump(spec, operands, line, this.isEmbedded);
 			case 'none':
 				return assembleZeroOperand(spec, operands, line);
 			case 'fence':
 				return assembleFence(spec, operands, line);
 			case 'rd_csr_rs1':
-				return assembleCsrRegister(spec, operands, line);
+				return assembleCsrRegister(spec, operands, line, this.isEmbedded);
 			case 'rd_csr_imm5':
-				return assembleCsrImmediate(spec, operands, line);
+				return assembleCsrImmediate(spec, operands, line, this.isEmbedded);
 			case 'rd_rs1_imm6':
-				return assembleIType(spec, operands, line);
+				return assembleIType(spec, operands, line, this.isEmbedded);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -149,9 +152,9 @@ function ensureOperandCount(operands: string[], expected: number, line: number, 
 	}
 }
 
-function parseRegisterOperand(token: string, role: string, line: number): number {
+function parseRegisterOperand(token: string, role: string, line: number, isEmbedded: boolean): number {
 	try {
-		return parseRegister(token);
+		return parseRegister(token, isEmbedded);
 	} catch (error) {
 		if (error instanceof AnalyzerError) {
 			throw error;
@@ -160,11 +163,11 @@ function parseRegisterOperand(token: string, role: string, line: number): number
 	}
 }
 
-function assembleRType(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleRType(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 3, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
-	const rs1 = parseRegisterOperand(operands[1], 'rs1', line);
-	const rs2 = parseRegisterOperand(operands[2], 'rs2', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+	const rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
+	const rs2 = parseRegisterOperand(operands[2], 'rs2', line, isEmbedded);
 	if (spec.funct3 === undefined || spec.funct7 === undefined) {
 		throw new AnalyzerError(`Missing funct fields for '${spec.name}'`, line);
 	}
@@ -178,10 +181,10 @@ function assembleRType(spec: InstructionSpec, operands: string[], line: number):
 	);
 }
 
-function assembleIType(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleIType(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 3, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
-	const rs1 = parseRegisterOperand(operands[1], 'rs1', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+	const rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
 	const imm = parseImmediate(operands[2], {
 		bits: spec.immBits ?? 12,
 		signed: !(spec.unsignedImmediate ?? false),
@@ -201,10 +204,10 @@ function assembleIType(spec: InstructionSpec, operands: string[], line: number):
 	return word;
 }
 
-function assembleLoad(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleLoad(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
-	const { base, offset } = parseMemoryOperand(operands[1], line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+	const { base, offset } = parseMemoryOperand(operands[1], line, isEmbedded);
 	const immMask = (1 << 12) - 1;
 	return (
 		((offset & immMask) << 20) |
@@ -215,10 +218,10 @@ function assembleLoad(spec: InstructionSpec, operands: string[], line: number): 
 	);
 }
 
-function assembleStore(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleStore(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rs2 = parseRegisterOperand(operands[0], 'rs2', line);
-	const { base, offset } = parseMemoryOperand(operands[1], line);
+	const rs2 = parseRegisterOperand(operands[0], 'rs2', line, isEmbedded);
+	const { base, offset } = parseMemoryOperand(operands[1], line, isEmbedded);
 	const immMask = (1 << 12) - 1;
 	const imm = offset & immMask;
 	const immHi = (imm >> 5) & 0x7f;
@@ -233,10 +236,10 @@ function assembleStore(spec: InstructionSpec, operands: string[], line: number):
 	);
 }
 
-function assembleBranch(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleBranch(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 3, line, spec.name);
-	const rs1 = parseRegisterOperand(operands[0], 'rs1', line);
-	const rs2 = parseRegisterOperand(operands[1], 'rs2', line);
+	const rs1 = parseRegisterOperand(operands[0], 'rs1', line, isEmbedded);
+	const rs2 = parseRegisterOperand(operands[1], 'rs2', line, isEmbedded);
 	const imm = parseImmediate(operands[2], {
 		bits: spec.immBits ?? 13,
 		signed: true,
@@ -262,9 +265,9 @@ function assembleBranch(spec: InstructionSpec, operands: string[], line: number)
 	);
 }
 
-function assembleUType(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleUType(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const imm = parseImmediate(operands[1], {
 		bits: spec.immBits ?? 20,
 		signed: true,
@@ -279,9 +282,9 @@ function assembleUType(spec: InstructionSpec, operands: string[], line: number):
 	);
 }
 
-function assembleJump(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleJump(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const imm = parseImmediate(operands[1], {
 		bits: spec.immBits ?? 21,
 		signed: true,
@@ -365,11 +368,11 @@ function parseFenceMask(token: string, line: number): number {
 	return mask;
 }
 
-function assembleCsrRegister(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleCsrRegister(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 3, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const csr = parseImmediate(operands[1], { bits: 12, signed: false, line, label: 'csr' });
-	const rs1 = parseRegisterOperand(operands[2], 'rs1', line);
+	const rs1 = parseRegisterOperand(operands[2], 'rs1', line, isEmbedded);
 	return (
 		((csr & 0xfff) << 20) |
 		((rs1 & 0x1f) << 15) |
@@ -379,9 +382,9 @@ function assembleCsrRegister(spec: InstructionSpec, operands: string[], line: nu
 	);
 }
 
-function assembleCsrImmediate(spec: InstructionSpec, operands: string[], line: number): number {
+function assembleCsrImmediate(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 3, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line);
+	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const csr = parseImmediate(operands[1], { bits: 12, signed: false, line, label: 'csr' });
 	const zimm = parseImmediate(operands[2], { bits: 5, signed: false, line, label: 'immediate' });
 	return (
@@ -393,7 +396,7 @@ function assembleCsrImmediate(spec: InstructionSpec, operands: string[], line: n
 	);
 }
 
-function parseMemoryOperand(token: string, line: number): { base: number; offset: number } {
+function parseMemoryOperand(token: string, line: number, isEmbedded: boolean): { base: number; offset: number } {
 	const trimmed = token.trim();
 	const open = trimmed.indexOf('(');
 	const close = trimmed.indexOf(')', open + 1);
@@ -403,6 +406,6 @@ function parseMemoryOperand(token: string, line: number): { base: number; offset
 	const offsetToken = trimmed.slice(0, open) || '0';
 	const baseToken = trimmed.slice(open + 1, close);
 	const offset = parseImmediate(offsetToken, { bits: 12, signed: true, line, label: 'offset' });
-	const base = parseRegisterOperand(baseToken, 'base', line);
+	const base = parseRegisterOperand(baseToken, 'base', line, isEmbedded);
 	return { base, offset };
 }

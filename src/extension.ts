@@ -21,13 +21,15 @@ type OutboundMessage =
 	| { type: 'status'; value: 'idle' | 'running' }
 	| { type: 'error'; value: string }
 	| { type: 'info'; value: string }
-	| { type: 'setXlen'; value: XLenSelection };
+	| { type: 'setXlen'; value: XLenSelection }
+	| { type: 'setEmbedded'; value: boolean };
 
 interface RunRequestMessage {
 	type: 'run';
 	input: string;
 	mode: AnalyzerMode;
 	xlen: XLenSelection;
+	isEmbedded: boolean;
 }
 
 interface CopyRequestMessage {
@@ -54,6 +56,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	private resolveView?: () => void;
 	private readonly viewReady: Promise<void>;
 	private xlenMode: XLenSelection = 'auto';
+	private isEmbedded: boolean = false;
+	private isEmbedded: boolean = false;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		this.viewReady = new Promise(resolve => {
@@ -93,6 +97,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
+		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
+		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
 	}
 
 	private enqueueMessage(message: OutboundMessage): void {
@@ -108,7 +114,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			case 'run': {
 				const xlenMode = normalizeXlenSelection(message.xlen);
 				this.xlenMode = xlenMode;
-				await this.handleRun(message.mode, message.input, xlenMode);
+				this.isEmbedded = message.isEmbedded;
+				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded);
 				break;
 			}
 			case 'copy':
@@ -125,7 +132,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection): Promise<void> {
+	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection, isEmbedded: boolean): Promise<void> {
 		if (!input.trim()) {
 			this.enqueueMessage({ type: 'error', value: l10n.t('Input is empty.') });
 			return;
@@ -134,7 +141,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'status', value: 'running' });
 
 		try {
-			const result = await runAnalyzer(mode, input, xlenMode);
+			const result = await runAnalyzer(mode, input, xlenMode, isEmbedded);
 			this.enqueueMessage({ type: 'result', value: result.output });
 			this.enqueueMessage({
 				type: 'info',
@@ -438,9 +445,9 @@ interface AnalyzerRunResult {
 	mode: XLenMode;
 }
 
-async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection): Promise<AnalyzerRunResult> {
+async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection, isEmbedded: boolean = false): Promise<AnalyzerRunResult> {
 	const xlenMode = selectionToXLenMode(selection);
-	const options: AnalyzerOptions = { xlen: xlenMode };
+	const options: AnalyzerOptions = { xlen: xlenMode, isEmbedded };
 	if (mode === 'assemble') {
 		const result = assembleDetailed(input, options);
 		return { output: result.output, detectedXlen: result.detectedXlen, mode: result.mode };
