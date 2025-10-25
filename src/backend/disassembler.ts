@@ -1,7 +1,7 @@
 import { AnalyzerError } from './errors';
 import { instructionsByOpcode, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
-import { formatRegister, formatFloatRegister } from './registers';
+import { formatRegister, formatFloatRegister, formatVectorRegister } from './registers';
 import { parseNumericLiteral, signExtend } from './utils';
 
 export interface DisassembleDetailedResult extends AnalyzerResultBase {
@@ -57,7 +57,8 @@ class Disassembler {
 		if (!candidates || candidates.length === 0) {
 			throw new AnalyzerError(`Unknown opcode 0x${opcode.toString(16)}`, line);
 		}
-		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate));
+		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate))
+			.sort((a, b) => (b.minXlen ?? 32) - (a.minXlen ?? 32));
 		if (filtered.length === 0) {
 			const required = Math.min(...candidates.map(spec => (spec.minXlen ?? 32)));
 			if (typeof this.mode === 'number') {
@@ -76,8 +77,9 @@ class Disassembler {
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
-			case 'rd_rs1':
 				return decodeRType(spec, word);
+			case 'rd_rs1':
+				return spec.format === 'I' ? decodeIType(spec, word) : decodeRType(spec, word);
 			case 'rd_rs1_imm12':
 				return decodeIType(spec, word);
 			case 'rd_mem':
@@ -112,6 +114,21 @@ class Disassembler {
 				return decodeFloatRType(spec, word);
 			case 'fd_fs1_fs2_fs3':
 				return decodeFloatR4Type(spec, word);
+			case 'vd_vs1_vs2':
+			case 'vd_vs1_vs2_vm':
+			case 'vd_vs1_rs2':
+			case 'vd_vs1_rs2_vm':
+			case 'vd_vs1_imm':
+			case 'vd_vs1_imm_vm':
+			case 'vd_rs1':
+			case 'vd_rs1_vm':
+			case 'vd_vs1':
+			case 'vd_vs1_vm':
+				return decodeVType(spec, word);
+			case 'vd_mem':
+				return decodeVLoad(spec, word);
+			case 'vs_mem':
+				return decodeVStore(spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -142,7 +159,8 @@ class Disassembler {
 		if (!candidates || candidates.length === 0) {
 			throw new AnalyzerError(`Unknown compressed opcode 0x${fullOpcode.toString(16)}`, line);
 		}
-		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate));
+		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate))
+			.sort((a, b) => (b.minXlen ?? 32) - (a.minXlen ?? 32));
 		if (filtered.length === 0) {
 			throw new AnalyzerError('Unsupported compressed instruction encoding', line);
 		}
@@ -435,7 +453,13 @@ function decodeIType(spec: InstructionSpec, word: number): string {
 	} else {
 		imm = signExtend(immRaw, spec.immBits ?? 12);
 	}
-	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${imm}`;
+	
+	if (spec.fixedImmediate !== undefined) {
+		// For instructions with fixed immediate, don't show the immediate
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}`;
+	} else {
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${imm}`;
+	}
 }
 
 function decodeLoad(spec: InstructionSpec, word: number): string {
@@ -611,4 +635,60 @@ function decodeCJType(spec: InstructionSpec, word: number): string {
 	return `${spec.name} ${imm}`;
 }
 
+function decodeVType(spec: InstructionSpec, word: number): string {
+	const vd = (word >> 7) & 0x1f;
+	const vs1 = (word >> 15) & 0x1f;
+	const vs2 = (word >> 20) & 0x1f;
+	const vm = (word >> 25) & 0x1;
+
+	let operands = '';
+
+	switch (spec.operandPattern) {
+		case 'vd_vs1_vs2':
+		case 'vd_vs1_vs2_vm':
+			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1)}, ${formatVectorRegister(vs2)}`;
+			break;
+		case 'vd_vs1_rs2':
+		case 'vd_vs1_rs2_vm':
+			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1)}, ${formatRegister(vs2)}`;
+			break;
+		case 'vd_vs1_imm':
+		case 'vd_vs1_imm_vm':
+			const imm = signExtend(vs1, 5);
+			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1 >> 5 ? vs1 : 0)}, ${imm}`; // For imm, vs1 field contains immediate
+			break;
+		case 'vd_rs1':
+		case 'vd_rs1_vm':
+			operands = `${formatVectorRegister(vd)}, ${formatRegister(vs1)}`;
+			break;
+		case 'vd_vs1':
+		case 'vd_vs1_vm':
+			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1)}`;
+			break;
+		default:
+			return spec.name;
+	}
+
+	// Add mask suffix if masked operation
+	if (spec.operandPattern.includes('_vm') && vm === 0) {
+		operands += ', v0.t';
+	}
+
+	return `${spec.name} ${operands}`;
+}
+
+function decodeVLoad(spec: InstructionSpec, word: number): string {
+	const vd = (word >> 7) & 0x1f;
+	const rs1 = (word >> 15) & 0x1f;
+	const imm = signExtend((word >> 20) & 0xfff, 12);
+	return `${spec.name} ${formatVectorRegister(vd)}, ${imm}(${formatRegister(rs1)})`;
+}
+
+function decodeVStore(spec: InstructionSpec, word: number): string {
+	const vs3 = (word >> 7) & 0x1f;
+	const rs1 = (word >> 15) & 0x1f;
+	const vs2 = (word >> 20) & 0x1f;
+	const imm = signExtend(((word >> 25) & 0x7f) << 5 | vs3, 12);
+	return `${spec.name} ${formatVectorRegister(vs2)}, ${imm}(${formatRegister(rs1)})`;
+}
 

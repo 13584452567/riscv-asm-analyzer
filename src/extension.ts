@@ -132,8 +132,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				this.xlenMode = xlenMode;
 				this.isEmbedded = message.isEmbedded;
 				this.floatMode = message.floatMode;
-				const { floatEnabled, doubleEnabled } = this.resolveFloatOptions(message.floatMode, message.input);
-				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded, floatEnabled, doubleEnabled);
+				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded, message.floatMode);
 				break;
 			}
 			case 'copy':

@@ -82,9 +82,8 @@ export function parseRegister(token: string, isEmbedded: boolean = false): numbe
 }
 
 export function formatRegister(register: number, isEmbedded: boolean = false): string {
-	const names = isEmbedded ? eCanonicalNames : canonicalNames;
-	if (Number.isInteger(register) && register >= 0 && register < names.length) {
-		return names[register];
+	if (Number.isInteger(register) && register >= 0 && register < 32) {
+		return `x${register}`;
 	}
 	return `x${register & (isEmbedded ? 0xf : 0x1f)}`;
 }
@@ -108,4 +107,24 @@ export function formatFloatRegister(register: number): string {
 		return `f${register}`;
 	}
 	return `f${register & 0x1f}`;
+}
+
+export function parseVectorRegister(token: string): number {
+	const trimmed = token.trim();
+	const match = trimmed.match(/^v(\d+)$/);
+	if (!match) {
+		throw new Error(`Invalid vector register '${token}'`);
+	}
+	const regNum = parseInt(match[1], 10);
+	if (regNum < 0 || regNum > 31) {
+		throw new Error(`Vector register number ${regNum} out of range (0-31)`);
+	}
+	return regNum;
+}
+
+export function formatVectorRegister(register: number): string {
+	if (Number.isInteger(register) && register >= 0 && register < 32) {
+		return `v${register}`;
+	}
+	return `v${register & 0x1f}`;
 }

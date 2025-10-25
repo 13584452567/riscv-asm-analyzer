@@ -15,7 +15,7 @@ describe('RISC-V assembler backend', () => {
 
 	it('assembles slli instruction with shamt', () => {
 		const result = assemble('slli x5, x6, 3');
-		assert.strictEqual(result, '0x00319293');
+		assert.strictEqual(result, '0x00331293');
 	});
 
 	it('assembles addiw instruction', () => {
@@ -35,7 +35,7 @@ describe('RISC-V assembler backend', () => {
 
 	it('assembles mul instruction', () => {
 		const result = assemble('mul x5, x6, x7');
-		assert.strictEqual(result, '0x027182b3');
+		assert.strictEqual(result, '0x027302b3');
 	});
 
 	it('assembles div instruction', () => {
@@ -45,7 +45,7 @@ describe('RISC-V assembler backend', () => {
 
 	it('assembles mulw instruction', () => {
 		const result = assemble('mulw x5, x6, x7');
-		assert.strictEqual(result, '0x027182bb');
+		assert.strictEqual(result, '0x027302bb');
 	});
 
 	it('assembles ld instruction', () => {
@@ -120,7 +120,7 @@ describe('RISC-V disassembler backend', () => {
 	});
 
 	it('disassembles slli instruction', () => {
-		const result = disassemble('0x00319293');
+		const result = disassemble('0x00331293');
 		assert.strictEqual(result, 'slli x5, x6, 3');
 	});
 
@@ -140,7 +140,7 @@ describe('RISC-V disassembler backend', () => {
 	});
 
 	it('disassembles mul instruction', () => {
-		const result = disassemble('0x027182b3');
+		const result = disassemble('0x027302b3');
 		assert.strictEqual(result, 'mul x5, x6, x7');
 	});
 
@@ -150,7 +150,7 @@ describe('RISC-V disassembler backend', () => {
 	});
 
 	it('disassembles mulw instruction', () => {
-		const result = disassemble('0x027182bb');
+		const result = disassemble('0x027302bb');
 		assert.strictEqual(result, 'mulw x5, x6, x7');
 	});
 
@@ -239,8 +239,8 @@ describe('RISC-V disassembler backend', () => {
 
 	it('assembles and disassembles RV128I instructions', () => {
 		const instructions = [
-			{ asm: 'lq x1, 0(x2)', hex: '0x00014083' },
-			{ asm: 'sq x3, 32(x4)', hex: '0x02324023' }
+			{ asm: 'lq x1, 0(x2)', hex: '0x00012083' },
+			{ asm: 'sq x3, 32(x4)', hex: '0x02322023' }
 		];
 
 		for (const { asm, hex } of instructions) {

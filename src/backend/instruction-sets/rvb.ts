@@ -7,7 +7,7 @@ const zbbInstructions: InstructionSpec[] = [
 		format: 'I',
 		opcode: 0b0010011,
 		funct3: 0b001,
-		operandPattern: 'rd_rs1_imm12',
+		operandPattern: 'rd_rs1',
 		fixedImmediate: 0b011000000000
 	},
 	{

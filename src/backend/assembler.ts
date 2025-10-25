@@ -1,7 +1,7 @@
 import { AnalyzerError } from './errors';
 import { instructionsByName, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
-import { parseRegister, parseFloatRegister } from './registers';
+import { parseRegister, parseFloatRegister, parseVectorRegister } from './registers';
 import { formatHex, parseImmediate } from './utils';
 
 
@@ -64,8 +64,9 @@ class Assembler {
 
 		switch (spec.operandPattern) {
 			case 'rd_rs1_rs2':
-			case 'rd_rs1':
 				return assembleRType(spec, operands, line, this.isEmbedded);
+			case 'rd_rs1':
+				return spec.format === 'I' ? assembleIType(spec, operands, line, this.isEmbedded) : assembleRType(spec, operands, line, this.isEmbedded);
 			case 'rd_rs1_imm12':
 				return assembleIType(spec, operands, line, this.isEmbedded);
 			case 'rd_mem':
@@ -96,6 +97,21 @@ class Assembler {
 				return assembleFloatRType(spec, operands, line);
 			case 'fd_fs1_fs2_fs3':
 				return assembleFloatR4Type(spec, operands, line);
+			case 'vd_vs1_vs2':
+			case 'vd_vs1_vs2_vm':
+			case 'vd_vs1_rs2':
+			case 'vd_vs1_rs2_vm':
+			case 'vd_vs1_imm':
+			case 'vd_vs1_imm_vm':
+			case 'vd_rs1':
+			case 'vd_rs1_vm':
+			case 'vd_vs1':
+			case 'vd_vs1_vm':
+				return assembleVType(spec, operands, line);
+			case 'vd_mem':
+				return assembleVLoad(spec, operands, line);
+			case 'vs_mem':
+				return assembleVStore(spec, operands, line);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -263,10 +279,10 @@ function assembleFloatR4Type(spec: InstructionSpec, operands: string[], line: nu
 	if (operands.length !== 4) {
 		throw new AnalyzerError(`Expected 4 operands, got ${operands.length}`, line);
 	}
-	const fd = parseFloatRegister(operands[0], line);
-	const fs1 = parseFloatRegister(operands[1], line);
-	const fs2 = parseFloatRegister(operands[2], line);
-	const fs3 = parseFloatRegister(operands[3], line);
+	const fd = parseFloatRegister(operands[0]);
+	const fs1 = parseFloatRegister(operands[1]);
+	const fs2 = parseFloatRegister(operands[2]);
+	const fs3 = parseFloatRegister(operands[3]);
 
 	let word = 0;
 	word |= spec.opcode;
@@ -310,10 +326,12 @@ function assembleFloatSType(spec: InstructionSpec, operands: string[], line: num
 }
 
 function assembleIType(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
-	ensureOperandCount(operands, 3, line, spec.name);
+	const hasFixedImm = spec.fixedImmediate !== undefined;
+	const expectedOperands = hasFixedImm ? 2 : 3;
+	ensureOperandCount(operands, expectedOperands, line, spec.name);
 	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const rs1 = parseRegisterOperand(operands[1], 'rs1', line, isEmbedded);
-	const imm = parseImmediate(operands[2], {
+	const imm = hasFixedImm ? spec.fixedImmediate! : parseImmediate(operands[2], {
 		bits: spec.immBits ?? 12,
 		signed: !(spec.unsignedImmediate ?? false),
 		line,
@@ -544,5 +562,120 @@ function parseMemoryOperand(token: string, line: number, isEmbedded: boolean): {
 	return { base, offset };
 }
 
+function assembleVType(spec: InstructionSpec, operands: string[], line: number): number {
+	// Parse operands based on pattern
+	let vd = 0, vs1 = 0, vs2 = 0, rs2 = 0, imm = 0, vm = 1;
+
+	switch (spec.operandPattern) {
+		case 'vd_vs1_vs2':
+		case 'vd_vs1_vs2_vm':
+			ensureOperandCount(operands, 3, line, spec.name);
+			vd = parseVectorRegister(operands[0]);
+			vs1 = parseVectorRegister(operands[1]);
+			vs2 = parseVectorRegister(operands[2]);
+			if (spec.operandPattern === 'vd_vs1_vs2_vm') {
+				vm = 0; // masked operation
+			}
+			break;
+		case 'vd_vs1_rs2':
+		case 'vd_vs1_rs2_vm':
+			ensureOperandCount(operands, 3, line, spec.name);
+			vd = parseVectorRegister(operands[0]);
+			vs1 = parseVectorRegister(operands[1]);
+			rs2 = parseRegister(operands[2], false); // scalar register
+			if (spec.operandPattern === 'vd_vs1_rs2_vm') {
+				vm = 0;
+			}
+			break;
+		case 'vd_vs1_imm':
+		case 'vd_vs1_imm_vm':
+			ensureOperandCount(operands, 3, line, spec.name);
+			vd = parseVectorRegister(operands[0]);
+			vs1 = parseVectorRegister(operands[1]);
+			imm = parseImmediate(operands[2], { bits: 5, signed: true, line, label: 'immediate' });
+			if (spec.operandPattern === 'vd_vs1_imm_vm') {
+				vm = 0;
+			}
+			break;
+		case 'vd_rs1':
+		case 'vd_rs1_vm':
+			ensureOperandCount(operands, 2, line, spec.name);
+			vd = parseVectorRegister(operands[0]);
+			rs2 = parseRegister(operands[1], false); // rs1 field used for scalar
+			if (spec.operandPattern === 'vd_rs1_vm') {
+				vm = 0;
+			}
+			break;
+		case 'vd_vs1':
+		case 'vd_vs1_vm':
+			ensureOperandCount(operands, 2, line, spec.name);
+			vd = parseVectorRegister(operands[0]);
+			vs1 = parseVectorRegister(operands[1]);
+			if (spec.operandPattern === 'vd_vs1_vm') {
+				vm = 0;
+			}
+			break;
+		default:
+			throw new AnalyzerError(`Unsupported vector operand pattern '${spec.operandPattern}'`, line);
+	}
+
+	// Build the instruction word
+	let word = spec.opcode & 0x7f;
+
+	// Add vm field (bit 25)
+	word |= (vm & 0x1) << 25;
+
+	// Add vs2 field (bits 24:20)
+	word |= (vs2 & 0x1f) << 20;
+
+	// Add vs1/rs1 field (bits 19:15)
+	const rs1Field = spec.operandPattern.includes('rs2') ? rs2 : vs1;
+	word |= (rs1Field & 0x1f) << 15;
+
+	// Add funct3 field (bits 14:12)
+	word |= ((spec.funct3 ?? 0) & 0x7) << 12;
+
+	// Add vd field (bits 11:7)
+	word |= (vd & 0x1f) << 7;
+
+	// Add funct6 field (bits 31:26)
+	word |= ((spec.funct6 ?? 0) & 0x3f) << 26;
+
+	// For immediate operations, add imm to rs1 field
+	if (spec.operandPattern.includes('imm')) {
+		word |= (imm & 0x1f) << 15;
+	}
+
+	return word;
+}
+
+function assembleVLoad(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 2, line, spec.name);
+	const vd = parseVectorRegister(operands[0]);
+	const { base, offset } = parseMemoryOperand(operands[1], line, false);
+
+	return (
+		((offset & 0xfff) << 20) |
+		((base & 0x1f) << 15) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
+		((vd & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
+
+function assembleVStore(spec: InstructionSpec, operands: string[], line: number): number {
+	ensureOperandCount(operands, 2, line, spec.name);
+	const vs = parseVectorRegister(operands[0]);
+	const { base, offset } = parseMemoryOperand(operands[1], line, false);
+
+	return (
+		(((offset >> 5) & 0x7f) << 25) |
+		((vs & 0x1f) << 20) |
+		((base & 0x1f) << 15) |
+		(((spec.funct3 ?? 0) & 0x7) << 12) |
+		((offset & 0x1f) << 7) |
+		(spec.opcode & 0x7f)
+	);
+}
 
 
