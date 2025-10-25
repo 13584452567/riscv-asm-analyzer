@@ -313,7 +313,10 @@ function assembleIType(spec: InstructionSpec, operands: string[], line: number, 
 
 function assembleLoad(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rd = parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
+	const isFloat = spec.format === 'FI';
+	const rd = isFloat
+		? parseFloatRegisterOperand(operands[0], 'rd', line)
+		: parseRegisterOperand(operands[0], 'rd', line, isEmbedded);
 	const { base, offset } = parseMemoryOperand(operands[1], line, isEmbedded);
 	const immMask = (1 << 12) - 1;
 	return (
@@ -327,7 +330,10 @@ function assembleLoad(spec: InstructionSpec, operands: string[], line: number, i
 
 function assembleStore(spec: InstructionSpec, operands: string[], line: number, isEmbedded: boolean): number {
 	ensureOperandCount(operands, 2, line, spec.name);
-	const rs2 = parseRegisterOperand(operands[0], 'rs2', line, isEmbedded);
+	const isFloat = spec.format === 'FS';
+	const rs2 = isFloat
+		? parseFloatRegisterOperand(operands[0], 'rs2', line)
+		: parseRegisterOperand(operands[0], 'rs2', line, isEmbedded);
 	const { base, offset } = parseMemoryOperand(operands[1], line, isEmbedded);
 	const immMask = (1 << 12) - 1;
 	const imm = offset & immMask;

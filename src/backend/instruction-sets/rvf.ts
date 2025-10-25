@@ -10,7 +10,7 @@ const floatingPointLoadStoreInstructions: InstructionSpec[] = [
 		format: 'FI',
 		opcode: 0b0000111,
 		funct3: 0b010,
-		operandPattern: 'fd_rs1',
+		operandPattern: 'rd_mem',
 		minXlen: 32
 	},
 	{
@@ -18,7 +18,7 @@ const floatingPointLoadStoreInstructions: InstructionSpec[] = [
 		format: 'FS',
 		opcode: 0b0100111,
 		funct3: 0b010,
-		operandPattern: 'fs2_fs1_rs1',
+		operandPattern: 'rs2_mem',
 		minXlen: 32
 	}
 ];

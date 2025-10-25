@@ -5,6 +5,7 @@ export interface AnalyzerOptions {
 	isEmbedded?: boolean;
 	vectorEnabled?: boolean;
 	floatEnabled?: boolean;
+	doubleEnabled?: boolean;
 	vlen?: number; // Vector Length (VLEN)
 }
 
@@ -13,5 +14,6 @@ export interface AnalyzerResultBase {
 	mode: XLenMode;
 	vectorEnabled?: boolean;
 	floatEnabled?: boolean;
+	doubleEnabled?: boolean;
 	vlen?: number;
 }

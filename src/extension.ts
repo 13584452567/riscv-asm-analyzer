@@ -26,7 +26,8 @@ type OutboundMessage =
 	| { type: 'setXlen'; value: XLenSelection }
 	| { type: 'setEmbedded'; value: boolean }
 	| { type: 'setVectorEnabled'; value: boolean }
-	| { type: 'setFloatEnabled'; value: boolean };
+	| { type: 'setFloatEnabled'; value: boolean }
+	| { type: 'setDoubleEnabled'; value: boolean };
 
 interface RunRequestMessage {
 	type: 'run';
@@ -36,6 +37,7 @@ interface RunRequestMessage {
 	isEmbedded: boolean;
 	vectorEnabled: boolean;
 	floatEnabled: boolean;
+	doubleEnabled: boolean;
 }
 
 interface CopyRequestMessage {
@@ -67,7 +69,12 @@ interface UpdateFloatMessage {
 	value: boolean;
 }
 
-type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage | UpdateEmbeddedMessage | UpdateVectorMessage | UpdateFloatMessage;
+interface UpdateDoubleMessage {
+	type: 'updateDouble';
+	value: boolean;
+}
+
+type InboundMessage = RunRequestMessage | CopyRequestMessage | SelectionRequestMessage | UpdateXlenMessage | UpdateEmbeddedMessage | UpdateVectorMessage | UpdateFloatMessage | UpdateDoubleMessage;
 
 class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'riscvAsmAnalyzer.view';
@@ -80,6 +87,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 	private isEmbedded: boolean = false;
 	private vectorEnabled: boolean = false;
 	private floatEnabled: boolean = false;
+	private doubleEnabled: boolean = false;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
 		this.viewReady = new Promise(resolve => {
@@ -121,6 +129,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
 		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
 		this.enqueueMessage({ type: 'setVectorEnabled', value: this.vectorEnabled });
+		this.enqueueMessage({ type: 'setFloatEnabled', value: this.floatEnabled });
+		this.enqueueMessage({ type: 'setDoubleEnabled', value: this.doubleEnabled });
 	}
 
 	private enqueueMessage(message: OutboundMessage): void {
@@ -139,7 +149,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				this.isEmbedded = message.isEmbedded;
 				this.vectorEnabled = message.vectorEnabled;
 				this.floatEnabled = message.floatEnabled;
-				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded, message.vectorEnabled, message.floatEnabled);
+				this.doubleEnabled = message.doubleEnabled;
+				await this.handleRun(message.mode, message.input, xlenMode, message.isEmbedded, message.vectorEnabled, message.floatEnabled, message.doubleEnabled);
 				break;
 			}
 			case 'copy':
@@ -160,12 +171,15 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			case 'updateFloat':
 				this.floatEnabled = message.value;
 				break;
+			case 'updateDouble':
+				this.doubleEnabled = message.value;
+				break;
 			default:
 				break;
 		}
 	}
 
-	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection, isEmbedded: boolean, vectorEnabled: boolean, floatEnabled: boolean): Promise<void> {
+	private async handleRun(mode: AnalyzerMode, input: string, xlenMode: XLenSelection, isEmbedded: boolean, vectorEnabled: boolean, floatEnabled: boolean, doubleEnabled: boolean): Promise<void> {
 		if (!input.trim()) {
 			this.enqueueMessage({ type: 'error', value: l10n.t('Input is empty.') });
 			return;
@@ -174,7 +188,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'status', value: 'running' });
 
 		try {
-			const result = await runAnalyzer(mode, input, xlenMode, isEmbedded, vectorEnabled, floatEnabled);
+			const result = await runAnalyzer(mode, input, xlenMode, isEmbedded, vectorEnabled, floatEnabled, doubleEnabled);
 			this.enqueueMessage({ type: 'result', value: result.output });
 			this.enqueueMessage({
 				type: 'info',
@@ -318,7 +332,11 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			floatLabel: l10n.t('Floating-Point Extension'),
 			floatOptionDisabled: l10n.t('Disabled'),
 			floatOptionEnabled: l10n.t('Enabled'),
-			floatHint: l10n.t('Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.')
+			floatHint: l10n.t('Enable RISC-V Single-Precision Floating-Point Extension (RVF) instructions.'),
+			doubleLabel: l10n.t('Double-Precision Extension'),
+			doubleOptionDisabled: l10n.t('Disabled'),
+			doubleOptionEnabled: l10n.t('Enabled'),
+			doubleHint: l10n.t('Enable RISC-V Double-Precision Floating-Point Extension (RVD) instructions.')
 		};
 
 		const scriptStrings = JSON.stringify({
@@ -342,6 +360,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			const embeddedSelect = document.getElementById('embeddedSelect');
 			const vectorSelect = document.getElementById('vectorSelect');
 			const floatSelect = document.getElementById('floatSelect');
+			const doubleSelect = document.getElementById('doubleSelect');
 
 			function setRunning(isRunning) {
 				runButton.disabled = isRunning;
@@ -351,6 +370,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				embeddedSelect.disabled = isRunning;
 				vectorSelect.disabled = isRunning;
 				floatSelect.disabled = isRunning;
+				doubleSelect.disabled = isRunning;
 				runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
 			}
 
@@ -360,7 +380,8 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				const isEmbedded = embeddedSelect.value === 'true';
 				const vectorEnabled = vectorSelect.value === 'true';
 				const floatEnabled = floatSelect.value === 'true';
-				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled });
+				const doubleEnabled = doubleSelect.value === 'true';
+				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled, doubleEnabled });
 			});
 
 			copyButton.addEventListener('click', event => {
@@ -394,13 +415,19 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				vscode.postMessage({ type: 'updateFloat', value: floatEnabled });
 			});
 
+			doubleSelect.addEventListener('change', () => {
+				const doubleEnabled = doubleSelect.value === 'true';
+				vscode.postMessage({ type: 'updateDouble', value: doubleEnabled });
+			});
+
 			inputArea.addEventListener('keydown', event => {
 				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 					event.preventDefault();
 					const isEmbedded = embeddedSelect.value === 'true';
 					const vectorEnabled = vectorSelect.value === 'true';
 					const floatEnabled = floatSelect.value === 'true';
-					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled });
+					const doubleEnabled = doubleSelect.value === 'true';
+					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, vectorEnabled, floatEnabled, doubleEnabled });
 				}
 			});
 
@@ -441,6 +468,9 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 						break;
 					case 'setFloatEnabled':
 						floatSelect.value = message.value ? 'true' : 'false';
+						break;
+					case 'setDoubleEnabled':
+						doubleSelect.value = message.value ? 'true' : 'false';
 						break;
 					default:
 						break;
@@ -504,6 +534,14 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				</select>
 				<span class="hint">${escapeHtml(uiStrings.floatHint)}</span>
 			</div>
+			<div class="controls-row">
+				<label for="doubleSelect">${escapeHtml(uiStrings.doubleLabel)}</label>
+				<select id="doubleSelect">
+					<option value="false">${escapeHtml(uiStrings.doubleOptionDisabled)}</option>
+					<option value="true">${escapeHtml(uiStrings.doubleOptionEnabled)}</option>
+				</select>
+				<span class="hint">${escapeHtml(uiStrings.doubleHint)}</span>
+			</div>
 			<div class="button-row">
 				<button id="runButton" title="${escapeAttribute(uiStrings.runButtonHint)}">${escapeHtml(uiStrings.runButtonLabel)}</button>
 				<button id="copyButton">${escapeHtml(uiStrings.copyButtonLabel)}</button>
@@ -550,9 +588,9 @@ interface AnalyzerRunResult {
 	mode: XLenMode;
 }
 
-async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection, isEmbedded: boolean = false, vectorEnabled: boolean = false, floatEnabled: boolean = false): Promise<AnalyzerRunResult> {
+async function runAnalyzer(mode: AnalyzerMode, input: string, selection: XLenSelection, isEmbedded: boolean = false, vectorEnabled: boolean = false, floatEnabled: boolean = false, doubleEnabled: boolean = false): Promise<AnalyzerRunResult> {
 	const xlenMode = selectionToXLenMode(selection);
-	const options: AnalyzerOptions = { xlen: xlenMode, isEmbedded, vectorEnabled, floatEnabled };
+	const options: AnalyzerOptions = { xlen: xlenMode, isEmbedded, vectorEnabled, floatEnabled, doubleEnabled };
 	if (mode === 'assemble') {
 		const result = assembleDetailed(input, options);
 		return { output: result.output, detectedXlen: result.detectedXlen, mode: result.mode };

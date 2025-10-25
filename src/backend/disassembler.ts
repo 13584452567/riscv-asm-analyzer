@@ -288,7 +288,9 @@ function decodeLoad(spec: InstructionSpec, word: number): string {
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = (word >> 20) & 0xfff;
 	const offset = signExtend(immRaw, 12);
-	return `${spec.name} ${formatRegister(rd)}, ${offset}(${formatRegister(rs1)})`;
+	const isFloat = spec.format === 'FI';
+	const rdStr = isFloat ? formatFloatRegister(rd) : formatRegister(rd);
+	return `${spec.name} ${rdStr}, ${offset}(${formatRegister(rs1)})`;
 }
 
 function decodeStore(spec: InstructionSpec, word: number): string {
@@ -296,7 +298,9 @@ function decodeStore(spec: InstructionSpec, word: number): string {
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = ((word >> 25) << 5) | ((word >> 7) & 0x1f);
 	const offset = signExtend(immRaw, 12);
-	return `${spec.name} ${formatRegister(rs2)}, ${offset}(${formatRegister(rs1)})`;
+	const isFloat = spec.format === 'FS';
+	const rs2Str = isFloat ? formatFloatRegister(rs2) : formatRegister(rs2);
+	return `${spec.name} ${rs2Str}, ${offset}(${formatRegister(rs1)})`;
 }
 
 function decodeBranch(spec: InstructionSpec, word: number): string {

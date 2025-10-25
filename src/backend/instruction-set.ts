@@ -8,6 +8,7 @@ import { rv32eInstructions } from './instruction-sets/rv32e';
 import { rv64eInstructions } from './instruction-sets/rv64e';
 import { rvaInstructions } from './instruction-sets/rva';
 import { rvfInstructions } from './instruction-sets/rvf';
+import { rvdInstructions } from './instruction-sets/rvd';
 
 export { InstructionFormat, OperandPattern, InstructionSpec, XLen, XLenMode } from './instruction-types';
 
@@ -18,6 +19,7 @@ const instructionGroups: InstructionSpec[][] = [
 	rv64mInstructions,
 	rvbInstructions,
 	rvfInstructions,
+	rvdInstructions,
 	rv128iInstructions,
 	rv32eInstructions,
 	rv64eInstructions,
