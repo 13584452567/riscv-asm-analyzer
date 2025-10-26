@@ -111,6 +111,33 @@ describe('RISC-V assembler backend', () => {
 			assert.match(error.message, /Line 1/);
 		}
 	});
+
+	it('assembles common pseudo-instructions (single instruction)', () => {
+		// nop
+		assert.strictEqual(assemble('nop'), assemble('addi x0, x0, 0'));
+		// mv
+		assert.strictEqual(assemble('mv x1, x2'), assemble('addi x1, x2, 0'));
+		// not
+		assert.strictEqual(assemble('not x5, x6'), assemble('xori x5, x6, -1'));
+		// neg
+		assert.strictEqual(assemble('neg x5, x6'), assemble('sub x5, x0, x6'));
+		// branch with zero
+		assert.strictEqual(assemble('beqz x5, 8'), assemble('beq x5, x0, 8'));
+		assert.strictEqual(assemble('bnez x5, 8'), assemble('bne x5, x0, 8'));
+		// j/jr/ret/jal (one operand)
+		assert.strictEqual(assemble('j 8'), assemble('jal x0, 8'));
+		assert.strictEqual(assemble('jr x1'), assemble('jalr x0, x1, 0'));
+		assert.strictEqual(assemble('ret'), assemble('jalr x0, x1, 0'));
+		assert.strictEqual(assemble('jal 8'), assemble('jal x1, 8'));
+	});
+
+	it('assembles li pseudo-instruction (small and large immediates)', () => {
+		// small immediate fits in addi
+		assert.strictEqual(assemble('li x10, -5'), assemble('addi x10, x0, -5'));
+		// large immediate expands to two instructions
+		const out = assemble('li x10, 0x12345678').split('\n');
+		assert.deepStrictEqual(out, ['0x12346537', '0x67828513']);
+	});
 });
 
 describe('RISC-V disassembler backend', () => {

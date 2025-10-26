@@ -366,7 +366,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				event.preventDefault();
 				const mode = event.altKey ? 'disassemble' : 'assemble';
 				const isEmbedded = embeddedSelect.value === 'true';
-				const floatMode = floatSelect.value as FloatMode;
+				const floatMode = floatSelect.value;
 				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, floatMode });
 			});
 
@@ -392,7 +392,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 			});
 
 			floatSelect.addEventListener('change', () => {
-				const floatMode = floatSelect.value as FloatMode;
+				const floatMode = floatSelect.value;
 				vscode.postMessage({ type: 'updateFloat', value: floatMode });
 			});
 
@@ -400,7 +400,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
 					event.preventDefault();
 					const isEmbedded = embeddedSelect.value === 'true';
-					const floatMode = floatSelect.value as FloatMode;
+					const floatMode = floatSelect.value;
 					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, floatMode });
 				}
 			});

@@ -48,18 +48,38 @@ class Assembler {
 				continue;
 			}
 			const { mnemonic, operands } = parseLine(line, lineNumber);
-			const word = this.assembleInstruction(mnemonic, operands, lineNumber);
-			words.push(word >>> 0);
+			const produced = this.assembleInstructionOrPseudo(mnemonic, operands, lineNumber);
+			for (const w of produced) {
+				words.push(w >>> 0);
+			}
 		}
 		const detected = this.mode === 'auto' ? this.detectedXlen : (this.mode as XLen);
 		return { words, detectedXlen: detected };
 	}
 
-	private assembleInstruction(mnemonic: string, operands: string[], line: number): number {
+	private assembleInstructionOrPseudo(mnemonic: string, operands: string[], line: number): number[] {
 		const spec = instructionsByName.get(mnemonic);
-		if (!spec) {
+		if (spec) {
+			return [this.assembleSingle(spec, operands, line) >>> 0];
+		}
+
+		// Try to expand as a pseudo-instruction
+		const expanded = expandPseudo(mnemonic, operands, line, this.isEmbedded, this.mode, this.detectedXlen);
+		if (!expanded) {
 			throw new AnalyzerError(`Unsupported instruction '${mnemonic}'`, line);
 		}
+		const words: number[] = [];
+		for (const inst of expanded) {
+			const innerSpec = instructionsByName.get(inst.mnemonic);
+			if (!innerSpec) {
+				throw new AnalyzerError(`Internal error expanding pseudo '${mnemonic}' -> '${inst.mnemonic}'`, line);
+			}
+			words.push(this.assembleSingle(innerSpec, inst.operands, line) >>> 0);
+		}
+		return words;
+	}
+
+	private assembleSingle(spec: InstructionSpec, operands: string[], line: number): number {
 		this.ensureSupportedXlen(spec, line);
 
 		switch (spec.operandPattern) {
@@ -676,6 +696,124 @@ function assembleVStore(spec: InstructionSpec, operands: string[], line: number)
 		((offset & 0x1f) << 7) |
 		(spec.opcode & 0x7f)
 	);
+}
+
+// ------------------ Pseudo-instruction expansion ------------------
+type ExpandedInst = { mnemonic: string; operands: string[] };
+
+function fitsSigned(value: number, bits: number): boolean {
+	const min = -(1 << (bits - 1));
+	const max = (1 << (bits - 1)) - 1;
+	return value >= min && value <= max;
+}
+
+function expandPseudo(
+	mnemonic: string,
+	operands: string[],
+	line: number,
+	isEmbedded: boolean,
+	mode: XLenMode,
+	detectedXlen: XLen
+): ExpandedInst[] | null {
+	const m = mnemonic.toLowerCase();
+	const rd = (i: number) => operands[i];
+	const rs = (i: number) => operands[i];
+
+	switch (m) {
+		case 'nop':
+			ensureOperandCount(operands, 0, line, 'nop');
+			return [{ mnemonic: 'addi', operands: ['x0', 'x0', '0'] }];
+		case 'mv':
+			ensureOperandCount(operands, 2, line, 'mv');
+			return [{ mnemonic: 'addi', operands: [rd(0), rs(1), '0'] }];
+		case 'not':
+			ensureOperandCount(operands, 2, line, 'not');
+			return [{ mnemonic: 'xori', operands: [rd(0), rs(1), '-1'] }];
+		case 'neg':
+			ensureOperandCount(operands, 2, line, 'neg');
+			return [{ mnemonic: 'sub', operands: [rd(0), 'x0', rs(1)] }];
+		case 'negw':
+			ensureOperandCount(operands, 2, line, 'negw');
+			return [{ mnemonic: 'subw', operands: [rd(0), 'x0', rs(1)] }];
+		case 'sext.w':
+			ensureOperandCount(operands, 2, line, 'sext.w');
+			return [{ mnemonic: 'addiw', operands: [rd(0), rs(1), '0'] }];
+		case 'seqz':
+			ensureOperandCount(operands, 2, line, 'seqz');
+			return [{ mnemonic: 'sltiu', operands: [rd(0), rs(1), '1'] }];
+		case 'snez':
+			ensureOperandCount(operands, 2, line, 'snez');
+			return [{ mnemonic: 'sltu', operands: [rd(0), 'x0', rs(1)] }];
+		case 'sltz':
+			ensureOperandCount(operands, 2, line, 'sltz');
+			return [{ mnemonic: 'slt', operands: [rd(0), rs(1), 'x0'] }];
+		case 'sgtz':
+			ensureOperandCount(operands, 2, line, 'sgtz');
+			return [{ mnemonic: 'slt', operands: [rd(0), 'x0', rs(1)] }];
+		case 'beqz':
+			ensureOperandCount(operands, 2, line, 'beqz');
+			return [{ mnemonic: 'beq', operands: [rs(0), 'x0', operands[1]] }];
+		case 'bnez':
+			ensureOperandCount(operands, 2, line, 'bnez');
+			return [{ mnemonic: 'bne', operands: [rs(0), 'x0', operands[1]] }];
+		case 'blez':
+			ensureOperandCount(operands, 2, line, 'blez');
+			return [{ mnemonic: 'bge', operands: ['x0', rs(0), operands[1]] }];
+		case 'bgez':
+			ensureOperandCount(operands, 2, line, 'bgez');
+			return [{ mnemonic: 'bge', operands: [rs(0), 'x0', operands[1]] }];
+		case 'bltz':
+			ensureOperandCount(operands, 2, line, 'bltz');
+			return [{ mnemonic: 'blt', operands: [rs(0), 'x0', operands[1]] }];
+		case 'bgtz':
+			ensureOperandCount(operands, 2, line, 'bgtz');
+			return [{ mnemonic: 'blt', operands: ['x0', rs(0), operands[1]] }];
+		case 'j':
+			ensureOperandCount(operands, 1, line, 'j');
+			return [{ mnemonic: 'jal', operands: ['x0', operands[0]] }];
+		case 'jr':
+			ensureOperandCount(operands, 1, line, 'jr');
+			return [{ mnemonic: 'jalr', operands: ['x0', operands[0], '0'] }];
+		case 'ret':
+			ensureOperandCount(operands, 0, line, 'ret');
+			return [{ mnemonic: 'jalr', operands: ['x0', 'x1', '0'] }];
+		case 'jal':
+			// Pseudo form: jal offset  => jal x1, offset
+			if (operands.length === 1) {
+				return [{ mnemonic: 'jal', operands: ['x1', operands[0]] }];
+			}
+			return null; // real jal handled elsewhere
+		case 'li': {
+			ensureOperandCount(operands, 2, line, 'li');
+			const dest = operands[0];
+			// Limit: support 32-bit signed immediates for now
+			const imm = parseImmediate(operands[1], { bits: 32, signed: true, line, label: 'immediate' });
+			// If fits in 12-bit signed, use addi
+			if (fitsSigned(imm, 12)) {
+				return [{ mnemonic: 'addi', operands: [dest, 'x0', String(imm)] }];
+			}
+			// General case: LUI + ADDI with rounding
+			const upper = (imm + 0x800) >> 12; // arithmetic
+			const lower = imm - (upper << 12);
+			// Ensure lower fits 12-bit signed
+			if (!fitsSigned(lower, 12)) {
+				throw new AnalyzerError(`Cannot encode immediate ${imm} in 12-bit addi after LUI`, line);
+			}
+			const seq: ExpandedInst[] = [];
+			if (upper !== 0) {
+				seq.push({ mnemonic: 'lui', operands: [dest, String(upper)] });
+				if (lower !== 0) {
+					seq.push({ mnemonic: 'addi', operands: [dest, dest, String(lower)] });
+				}
+			} else {
+				// Rare case: no upper bits, just addi
+				seq.push({ mnemonic: 'addi', operands: [dest, 'x0', String(lower)] });
+			}
+			return seq;
+		}
+		default:
+			return null;
+	}
 }
 
 
