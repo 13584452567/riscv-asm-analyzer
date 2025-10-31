@@ -3,14 +3,33 @@
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
   "version": "0.0.1",
+  "publisher": "REPLACE_WITH_PUBLISHER",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.105.0"
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "main": "./out/extension.js",
   "l10n": "./i10n",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/13584452567/riscv-asm-analyzer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/13584452567/riscv-asm-analyzer/issues"
+  },
+  "homepage": "https://github.com/13584452567/riscv-asm-analyzer#readme",
+  "keywords": [
+    "riscv",
+    "asm",
+    "assembly",
+    "risc-v",
+    "analyzer"
+  ],
+  "license": "MIT",
   "contributes": {
     "commands": [
       {

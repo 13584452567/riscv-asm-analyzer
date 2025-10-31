@@ -1,71 +1,55 @@
-# riscv-asm-analyzer README
+# riscv-asm-analyzer
 
-This is the README for your extension "riscv-asm-analyzer". After writing up a brief description, we recommend including the following sections.
+riscv-asm-analyzer 是一个用于在 VS Code 中分析 RISC-V 汇编代码的扩展。它提供指令解析、反汇编/汇编支持、寄存器显示与错误提示，方便开发者在编辑器内快速查看汇编结构与语义信息。
 
-## Features
+## 主要功能
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- 高质量的 RISC-V 指令解析与语义分析
+- 支持多种指令集（rv32i/rv64i/rvc 等）和扩展集
+- 从选中文本快速加载并分析汇编块（右键菜单/编辑器标题）
+- 在侧边栏以可读格式显示反汇编/寄存器/错误信息
 
-For example if there is an image subfolder under your extension project workspace:
+## 安装
 
-\!\[feature X\]\(images/feature-x.png\)
+在 VS Code 中搜索 `riscv-asm-analyzer` 并安装，或者从 VSIX 文件安装。
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+> 注意：发布到 Marketplace 前，请在 `package.json` 中把 `publisher` 字段替换为你的发布者 ID（例如 `yourPublisherName`）。扩展标识为 `publisher.name`（例如 `yourPublisherName.riscv-asm-analyzer`）。
 
-## Requirements
+## 使用示例
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+1. 打开一个包含 RISC-V 汇编的文件（`.s`, `.asm` 等）。
+2. 选中一段汇编代码，右键选择 “Load selection” 或使用命令面板命令 `riscv-asm-analyzer.loadSelection`。
+3. 查看侧边栏的反汇编与寄存器视图。
 
-## Extension Settings
+## 配置
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+本扩展提供如下用户设置（在 `settings.json` 中）：
 
-For example:
+- `riscvAsmAnalyzer.cliPath` (string) — 可选，指向本地外部分析工具的路径（如果你需要将处理委托给外部 CLI）。
+- `riscvAsmAnalyzer.defaultArgs` (string[]) — 当使用外部 CLI 时的默认参数。
 
-This extension contributes the following settings:
+## 常见问题
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- Q: 如何更改图标或侧边栏图标？
+	A: 图标文件位于 `images/` 目录（`images/icon.png` 与 `images/riscv-view.svg`），可替换这些文件并在 `package.json` 中保留或更新 `icon` 字段。
 
-## Known Issues
+## 贡献
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+欢迎通过提交 issue 或 pull request 的方式贡献代码。仓库地址：
 
-## Release Notes
+https://github.com/13584452567/riscv-asm-analyzer
 
-Users appreciate release notes as you update your extension.
+在提交 PR 前请确保已运行 `npm run lint` 和 `npm run compile`。
 
-### 1.0.0
+## 许可
 
-Initial release of ...
+本项目采用 MIT 许可（`LICENSE`）。如需更改，请在 `package.json` 中更新 `license` 字段并在仓库根部添加相应 LICENSE 文件。
 
-### 1.0.1
+## 发布说明
 
-Fixed issue #.
+请在 `CHANGELOG.md` 中维护发布记录，Marketplace 页面会自动显示 `README.md` 的内容作为扩展详情。
 
-### 1.1.0
+***
 
-Added features X, Y, and Z.
+如果你希望我把 README 改为英文或添加更详细的示例截图/动图，请告诉我你想展示的图片或把图片文件放到 `images/` 下，我会更新 README 并提交更改.
 
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
