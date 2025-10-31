@@ -137,9 +137,7 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
             }
         }
 
-        this.enqueueMessage({ type: "setXlen", value: this.xlenMode })
-        this.enqueueMessage({ type: "setEmbedded", value: this.isEmbedded })
-        this.enqueueMessage({ type: "setFloatMode", value: this.floatMode })
+        // initial messages will be posted after restoring persisted state below
         // Restore persisted UI state (last input and controls) from workspaceState
         try {
             const ws = this.context.workspaceState
@@ -175,6 +173,11 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
         }
 
         this.enqueueMessage({ type: "setNumberBase", value: this.numberBase })
+
+        // Send restored control values to the webview so UI reflects persisted state
+        this.enqueueMessage({ type: "setXlen", value: this.xlenMode })
+        this.enqueueMessage({ type: "setEmbedded", value: this.isEmbedded })
+        this.enqueueMessage({ type: "setFloatMode", value: this.floatMode })
     }
 
     private enqueueMessage(message: OutboundMessage): void {
@@ -544,124 +547,178 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
         })
 
         const script = `
-			const strings = ${scriptStrings};
-			const vscode = acquireVsCodeApi();
-			const inputArea = document.getElementById('inputArea');
-			const outputArea = document.getElementById('outputArea');
-			const runButton = document.getElementById('runButton');
-			const copyButton = document.getElementById('copyButton');
-			const clearButton = document.getElementById('clearButton');
-			const statusLine = document.getElementById('statusLine');
-			const xlenSelect = document.getElementById('xlenSelect');
-			const embeddedSelect = document.getElementById('embeddedSelect');
-			const floatSelect = document.getElementById('floatSelect');
-			const numberBaseSelect = document.getElementById('numberBaseSelect');
+            const strings = ${scriptStrings};
+            const vscode = acquireVsCodeApi();
+            const inputArea = document.getElementById('inputArea');
+            const outputArea = document.getElementById('outputArea');
+            const runButton = document.getElementById('runButton');
+            const copyButton = document.getElementById('copyButton');
+            const clearButton = document.getElementById('clearButton');
+            const statusLine = document.getElementById('statusLine');
+            const xlenSelect = document.getElementById('xlenSelect');
+            const embeddedSelect = document.getElementById('embeddedSelect');
+            const floatSelect = document.getElementById('floatSelect');
+            const numberBaseSelect = document.getElementById('numberBaseSelect');
 
-			function setRunning(isRunning) {
-				runButton.disabled = isRunning;
-				copyButton.disabled = isRunning;
-				clearButton.disabled = isRunning;
-				xlenSelect.disabled = isRunning;
-				embeddedSelect.disabled = isRunning;
-				floatSelect.disabled = isRunning;
-				numberBaseSelect.disabled = isRunning;
-				runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
-			}
+            function setRunning(isRunning) {
+                runButton.disabled = isRunning;
+                copyButton.disabled = isRunning;
+                clearButton.disabled = isRunning;
+                xlenSelect.disabled = isRunning;
+                embeddedSelect.disabled = isRunning;
+                floatSelect.disabled = isRunning;
+                numberBaseSelect.disabled = isRunning;
+                runButton.textContent = isRunning ? strings.processingLabel : strings.runButtonLabel;
+            }
 
-			runButton.addEventListener('click', event => {
-				event.preventDefault();
-				const mode = event.altKey ? 'disassemble' : 'assemble';
-				const isEmbedded = embeddedSelect.value === 'true';
-				const floatMode = floatSelect.value;
-				const numberBase = numberBaseSelect.value;
-				vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, floatMode, numberBase });
-			});
+            // Restore webview-local state first (faster restore when webview is reloaded)
+            try {
+                const local = vscode.getState() || {};
+                if (local.input) inputArea.value = local.input;
+                if (local.output) outputArea.value = local.output;
+                if (local.xlen) xlenSelect.value = local.xlen;
+                if (typeof local.embedded !== 'undefined') embeddedSelect.value = local.embedded ? 'true' : 'false';
+                if (local.floatMode) floatSelect.value = local.floatMode;
+                if (local.numberBase) numberBaseSelect.value = local.numberBase;
+            } catch (e) {
+                // ignore
+            }
 
-			copyButton.addEventListener('click', event => {
-				event.preventDefault();
-				vscode.postMessage({ type: 'copy', value: outputArea.value });
-			});
+            function saveState() {
+                try {
+                    vscode.setState({
+                        input: inputArea.value,
+                        output: outputArea.value,
+                        xlen: xlenSelect.value,
+                        embedded: embeddedSelect.value === 'true',
+                        floatMode: floatSelect.value,
+                        numberBase: numberBaseSelect.value
+                    });
+                } catch (e) {
+                    // ignore
+                }
+            }
 
-			clearButton.addEventListener('click', event => {
-				event.preventDefault();
-				inputArea.value = '';
-				outputArea.value = '';
-				statusLine.textContent = strings.clearedStatus;
-			});
+            // debounce for input to avoid frequent writes
+            let saveTimer = null;
+            function scheduleSaveDebounced() {
+                if (saveTimer) clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => { saveState(); saveTimer = null; }, 500);
+            }
 
-			xlenSelect.addEventListener('change', () => {
-				vscode.postMessage({ type: 'updateXlen', value: xlenSelect.value });
-			});
+            runButton.addEventListener('click', event => {
+                event.preventDefault();
+                const mode = event.altKey ? 'disassemble' : 'assemble';
+                const isEmbedded = embeddedSelect.value === 'true';
+                const floatMode = floatSelect.value;
+                const numberBase = numberBaseSelect.value;
+                vscode.postMessage({ type: 'run', input: inputArea.value, mode, xlen: xlenSelect.value, isEmbedded, floatMode, numberBase });
+                // save immediately when user runs
+                saveState();
+            });
 
-			embeddedSelect.addEventListener('change', () => {
-				const isEmbedded = embeddedSelect.value === 'true';
-				vscode.postMessage({ type: 'updateEmbedded', value: isEmbedded });
-			});
+            copyButton.addEventListener('click', event => {
+                event.preventDefault();
+                vscode.postMessage({ type: 'copy', value: outputArea.value });
+            });
 
-			floatSelect.addEventListener('change', () => {
-				const floatMode = floatSelect.value;
-				vscode.postMessage({ type: 'updateFloat', value: floatMode });
-			});
+            clearButton.addEventListener('click', event => {
+                event.preventDefault();
+                inputArea.value = '';
+                outputArea.value = '';
+                statusLine.textContent = strings.clearedStatus;
+                saveState();
+            });
 
-			numberBaseSelect.addEventListener('change', () => {
-				vscode.postMessage({ type: 'updateNumberBase', value: numberBaseSelect.value });
-			});
+            xlenSelect.addEventListener('change', () => {
+                vscode.postMessage({ type: 'updateXlen', value: xlenSelect.value });
+                saveState();
+            });
 
-			inputArea.addEventListener('keydown', event => {
-				if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-					event.preventDefault();
-					const isEmbedded = embeddedSelect.value === 'true';
-					const floatMode = floatSelect.value;
-					const numberBase = numberBaseSelect.value;
-					vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, floatMode, numberBase });
-				}
-			});
+            embeddedSelect.addEventListener('change', () => {
+                const isEmbedded = embeddedSelect.value === 'true';
+                vscode.postMessage({ type: 'updateEmbedded', value: isEmbedded });
+                saveState();
+            });
 
-			document.getElementById('loadSelectionLink').addEventListener('click', event => {
-				event.preventDefault();
-				vscode.postMessage({ type: 'requestSelection' });
-			});
+            floatSelect.addEventListener('change', () => {
+                const floatMode = floatSelect.value;
+                vscode.postMessage({ type: 'updateFloat', value: floatMode });
+                saveState();
+            });
 
-			window.addEventListener('message', event => {
-				const message = event.data;
-				switch (message.type) {
-					case 'setInput':
-						inputArea.value = message.value ?? '';
-						break;
-					case 'result':
-						outputArea.value = message.value ?? '';
-						break;
-					case 'status':
-						setRunning(message.value === 'running');
-						if (message.value === 'running') {
-							statusLine.textContent = strings.runningStatus;
-						}
-						break;
-					case 'error':
-						statusLine.textContent = message.value ?? strings.defaultError;
-						break;
-					case 'info':
-						statusLine.textContent = message.value ?? '';
-						break;
-					case 'setXlen':
-						xlenSelect.value = message.value ?? 'auto';
-						break;
-					case 'setEmbedded':
-						embeddedSelect.value = message.value ? 'true' : 'false';
-						break;
-					case 'setFloatMode':
-						floatSelect.value = message.value ?? 'disabled';
-						break;
-					case 'setNumberBase':
-						numberBaseSelect.value = message.value ?? 'hex';
-						break;
-					default:
-						break;
-				}
-			});
+            numberBaseSelect.addEventListener('change', () => {
+                vscode.postMessage({ type: 'updateNumberBase', value: numberBaseSelect.value });
+                saveState();
+            });
 
-			setRunning(false);
-		`
+            inputArea.addEventListener('input', () => {
+                // schedule debounced save for typing
+                scheduleSaveDebounced();
+            });
+
+            inputArea.addEventListener('keydown', event => {
+                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                    event.preventDefault();
+                    const isEmbedded = embeddedSelect.value === 'true';
+                    const floatMode = floatSelect.value;
+                    const numberBase = numberBaseSelect.value;
+                    vscode.postMessage({ type: 'run', input: inputArea.value, mode: 'assemble', xlen: xlenSelect.value, isEmbedded, floatMode, numberBase });
+                    saveState();
+                }
+            });
+
+            document.getElementById('loadSelectionLink').addEventListener('click', event => {
+                event.preventDefault();
+                vscode.postMessage({ type: 'requestSelection' });
+            });
+
+            window.addEventListener('message', event => {
+                const message = event.data;
+                switch (message.type) {
+                    case 'setInput':
+                        inputArea.value = message.value ?? '';
+                        scheduleSaveDebounced();
+                        break;
+                    case 'result':
+                        outputArea.value = message.value ?? '';
+                        saveState();
+                        break;
+                    case 'status':
+                        setRunning(message.value === 'running');
+                        if (message.value === 'running') {
+                            statusLine.textContent = strings.runningStatus;
+                        }
+                        break;
+                    case 'error':
+                        statusLine.textContent = message.value ?? strings.defaultError;
+                        break;
+                    case 'info':
+                        statusLine.textContent = message.value ?? '';
+                        break;
+                    case 'setXlen':
+                        xlenSelect.value = message.value ?? 'auto';
+                        saveState();
+                        break;
+                    case 'setEmbedded':
+                        embeddedSelect.value = message.value ? 'true' : 'false';
+                        saveState();
+                        break;
+                    case 'setFloatMode':
+                        floatSelect.value = message.value ?? 'auto';
+                        saveState();
+                        break;
+                    case 'setNumberBase':
+                        numberBaseSelect.value = message.value ?? 'hex';
+                        saveState();
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            setRunning(false);
+        `
 
         return `<!DOCTYPE html>
 		<html lang="en">

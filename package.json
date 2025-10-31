@@ -89,7 +89,7 @@
           "enum": ["hex", "dec"],
           "default": "hex",
           "description": "Default number base used to display immediates and offsets in the analyzer UI."
-        },
+        }
         
       }
     }
