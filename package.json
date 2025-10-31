@@ -3,7 +3,7 @@
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
   "version": "0.0.1",
-  "publisher": "REPLACE_WITH_PUBLISHER",
+  "publisher": "ZiCai",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.105.0"
