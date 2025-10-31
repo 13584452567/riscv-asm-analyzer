@@ -122,6 +122,13 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 		this.enqueueMessage({ type: 'setXlen', value: this.xlenMode });
 		this.enqueueMessage({ type: 'setEmbedded', value: this.isEmbedded });
 		this.enqueueMessage({ type: 'setFloatMode', value: this.floatMode });
+		// Read persisted number base from workspace/user settings
+		try {
+			const cfg = vscode.workspace.getConfiguration('riscvAsmAnalyzer');
+			this.numberBase = cfg.get<'hex' | 'dec'>('numberBase', this.numberBase);
+		} catch {
+			// ignore errors and keep default
+		}
 		this.enqueueMessage({ type: 'setNumberBase', value: this.numberBase });
 	}
 
@@ -161,6 +168,12 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 				break;
 			case 'updateNumberBase':
 				this.numberBase = message.value;
+				// persist selection to user settings
+				try {
+					await vscode.workspace.getConfiguration('riscvAsmAnalyzer').update('numberBase', message.value, vscode.ConfigurationTarget.Global);
+				} catch {
+					// ignore persistence errors
+				}
 				break;
 			default:
 				break;

@@ -56,4 +56,8 @@
   "Quad-Precision (RVQ)": "Quad-Precision (RVQ)",
   "Auto-detect": "Auto-detect",
   "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions.": "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions."
+  ,
+  "Number base": "Number base",
+  "Hex (0x1234)": "Hex (0x1234)",
+  "Decimal (12345)": "Decimal (12345)"
 }

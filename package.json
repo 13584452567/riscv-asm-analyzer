@@ -84,6 +84,12 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
+        "riscvAsmAnalyzer.numberBase": {
+          "type": "string",
+          "enum": ["hex", "dec"],
+          "default": "hex",
+          "description": "Default number base used to display immediates and offsets in the analyzer UI."
+        },
         "riscvAsmAnalyzer.cliPath": {
           "type": "string",
           "default": "",

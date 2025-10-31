@@ -8,4 +8,8 @@
   "configuration.title": "RISC-V 分析器",
   "configuration.cliPath.description": "外部 RISC-V 汇编/反汇编 CLI 的绝对路径。",
   "configuration.defaultArgs.description": "调用 CLI 时附加的额外参数。"
+  ,
+  "Number base": "数值基数",
+  "Hex (0x1234)": "十六进制（0x1234）",
+  "Decimal (12345)": "十进制（12345）"
 }

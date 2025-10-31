@@ -56,4 +56,8 @@
   "Quad-Precision (RVQ)": "四精度 (RVQ)",
   "Auto-detect": "自动检测",
   "Enable RISC-V Floating-Point Extensions (RVF/RVD/RVQ) instructions.": "启用 RISC-V 浮点扩展 (RVF/RVD/RVQ) 指令。"
+  ,
+  "Number base": "数值基数",
+  "Hex (0x1234)": "十六进制（0x1234）",
+  "Decimal (12345)": "十进制（12345）"
 }

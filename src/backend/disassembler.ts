@@ -82,19 +82,19 @@ class Disassembler {
 			case 'rd_rs1_rs2':
 				return decodeRType(spec, word);
 			case 'rd_rs1':
-				return spec.format === 'I' ? decodeIType(spec, word) : decodeRType(spec, word);
+				return spec.format === 'I' ? decodeIType.call(this, spec, word) : decodeRType(spec, word);
 			case 'rd_rs1_imm12':
-				return decodeIType(spec, word);
+				return decodeIType.call(this, spec, word);
 			case 'rd_mem':
-				return decodeLoad(spec, word);
+				return decodeLoad.call(this, spec, word);
 			case 'rs2_mem':
-				return decodeStore(spec, word);
+				return decodeStore.call(this, spec, word);
 			case 'rs1_rs2_branch':
-				return decodeBranch(spec, word);
+				return decodeBranch.call(this, spec, word);
 			case 'rd_imm20':
-				return decodeUType(spec, word);
+				return decodeUType.call(this, spec, word);
 			case 'rd_jump':
-				return decodeJump(spec, word);
+				return decodeJump.call(this, spec, word);
 			case 'none':
 				return decodeZeroOperand(spec);
 			case 'fence':
@@ -104,11 +104,11 @@ class Disassembler {
 			case 'rd_csr_imm5':
 				return decodeCsrImmediate.call(this, spec, word);
 			case 'rd_rs1_imm6':
-				return decodeIType(spec, word);
+				return decodeIType.call(this, spec, word);
 			case 'fd_rs1':
-				return decodeFloatIType(spec, word);
+				return decodeFloatIType.call(this, spec, word);
 			case 'fs2_fs1_rs1':
-				return decodeFloatSType(spec, word);
+				return decodeFloatSType.call(this, spec, word);
 			case 'fd_fs1_fs2':
 			case 'fd_fs1':
 			case 'fd_rs1':
@@ -127,11 +127,11 @@ class Disassembler {
 			case 'vd_rs1_vm':
 			case 'vd_vs1':
 			case 'vd_vs1_vm':
-				return decodeVType(spec, word);
+				return decodeVType.call(this, spec, word);
 			case 'vd_mem':
-				return decodeVLoad(spec, word);
+				return decodeVLoad.call(this, spec, word);
 			case 'vs_mem':
-				return decodeVStore(spec, word);
+				return decodeVStore.call(this, spec, word);
 			default:
 				throw new AnalyzerError(`Unhandled operand pattern for '${spec.name}'`, line);
 		}
@@ -178,22 +178,22 @@ class Disassembler {
 				return decodeCRType(spec, word);
 			case 'rd_rs1_nzimm6':
 			case 'rd_nzimm6':
-				return decodeCIType(spec, word);
+				return decodeCIType.call(this, spec, word);
 			case 'rs2_nzimm6':
-				return decodeCSSType(spec, word);
+				return decodeCSSType.call(this, spec, word);
 			case 'rd_nzuimm6':
-				return decodeCIWType(spec, word);
+				return decodeCIWType.call(this, spec, word);
 			case 'rd_rs1_nzuimm6':
-				return decodeCLType(spec, word);
+				return decodeCLType.call(this, spec, word);
 			case 'rs2_rs1_nzuimm6':
-				return decodeCSType(spec, word);
+				return decodeCSType.call(this, spec, word);
 			case 'rd_rs1_rs2':
 				return decodeCAType(spec, word);
 			case 'rd_rs1_nzimm5':
 			case 'rs1_nzimm5':
-				return decodeCBType(spec, word);
+				return decodeCBType.call(this, spec, word);
 			case 'rd_nzimm11':
-				return decodeCJType(spec, word);
+				return decodeCJType.call(this, spec, word);
 			case 'rs1':
 				return decodeCRType(spec, word);
 			case 'none':
@@ -427,23 +427,23 @@ function decodeFloatR4Type(spec: InstructionSpec, word: number): string {
 	)}, ${formatFloatRegister(fs3)}`;
 }
 
-function decodeFloatIType(spec: InstructionSpec, word: number): string {
+function decodeFloatIType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const fd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const imm = signExtend((word >> 20) & 0xfff, 12);
-	return `${spec.name} ${formatFloatRegister(fd)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatFloatRegister(fd)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeFloatSType(spec: InstructionSpec, word: number): string {
+function decodeFloatSType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const fs2 = (word >> 20) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const imm7 = (word >> 25) & 0x7f;
 	const imm5 = (word >> 7) & 0x1f;
 	const imm = signExtend((imm7 << 5) | imm5, 12);
-	return `${spec.name} ${formatFloatRegister(fs2)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatFloatRegister(fs2)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeIType(spec: InstructionSpec, word: number): string {
+function decodeIType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = (word >> 20) & 0xfff;
@@ -460,32 +460,32 @@ function decodeIType(spec: InstructionSpec, word: number): string {
 	if (spec.fixedImmediate !== undefined) {
 		// For instructions with fixed immediate, don't show the immediate
 		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}`;
-	} else {
-		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${imm}`;
-	}
+    	} else {
+        	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs1)}, ${formatNumber(imm, this.numberBase)}`;
+    }
 }
 
-function decodeLoad(spec: InstructionSpec, word: number): string {
+function decodeLoad(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = (word >> 20) & 0xfff;
 	const offset = signExtend(immRaw, 12);
 	const isFloat = spec.format === 'FI';
 	const rdStr = isFloat ? formatFloatRegister(rd) : formatRegister(rd);
-	return `${spec.name} ${rdStr}, ${offset}(${formatRegister(rs1)})`;
+	return `${spec.name} ${rdStr}, ${formatNumber(offset, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeStore(spec: InstructionSpec, word: number): string {
+function decodeStore(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rs2 = (word >> 20) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const immRaw = ((word >> 25) << 5) | ((word >> 7) & 0x1f);
 	const offset = signExtend(immRaw, 12);
 	const isFloat = spec.format === 'FS';
 	const rs2Str = isFloat ? formatFloatRegister(rs2) : formatRegister(rs2);
-	return `${spec.name} ${rs2Str}, ${offset}(${formatRegister(rs1)})`;
+	return `${spec.name} ${rs2Str}, ${formatNumber(offset, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeBranch(spec: InstructionSpec, word: number): string {
+function decodeBranch(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rs1 = (word >> 15) & 0x1f;
 	const rs2 = (word >> 20) & 0x1f;
 	const imm12 = (word >> 31) & 0x1;
@@ -494,16 +494,16 @@ function decodeBranch(spec: InstructionSpec, word: number): string {
 	const imm4_1 = (word >> 8) & 0xf;
 	let imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
 	imm = signExtend(imm, 13);
-	return `${spec.name} ${formatRegister(rs1)}, ${formatRegister(rs2)}, ${imm}`;
+	return `${spec.name} ${formatRegister(rs1)}, ${formatRegister(rs2)}, ${formatNumber(imm, this.numberBase)}`;
 }
 
-function decodeUType(spec: InstructionSpec, word: number): string {
+function decodeUType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const imm = signExtend(word >> 12, spec.immBits ?? 20);
-	return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}`;
 }
 
-function decodeJump(spec: InstructionSpec, word: number): string {
+function decodeJump(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const imm20 = (word >> 31) & 0x1;
 	const imm10_1 = (word >> 21) & 0x3ff;
@@ -511,7 +511,7 @@ function decodeJump(spec: InstructionSpec, word: number): string {
 	const imm19_12 = (word >> 12) & 0xff;
 	let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
 	imm = signExtend(imm, spec.immBits ?? 21);
-	return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}`;
 }
 
 function decodeZeroOperand(spec: InstructionSpec): string {
@@ -575,41 +575,41 @@ function decodeCRType(spec: InstructionSpec, word: number): string {
 	return spec.name;
 }
 
-function decodeCIType(spec: InstructionSpec, word: number): string {
+function decodeCIType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const imm = signExtend(((word >> 2) & 0x1f) | ((word >> 12) & 0x1) << 5, 6);
 	if (spec.operandPattern === 'rd_rs1_nzimm6') {
-		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rd)}, ${imm}`;
+		return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}`;
 	} else if (spec.operandPattern === 'rd_nzimm6') {
-		return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+		return `${spec.name} ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}`;
 	}
 	return spec.name;
 }
 
-function decodeCSSType(spec: InstructionSpec, word: number): string {
+function decodeCSSType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rs2 = (word >> 2) & 0x1f;
 	const imm = ((word >> 7) & 0x3) | ((word >> 10) & 0xf) << 2;
-	return `${spec.name} ${formatRegister(rs2)}, ${imm}`;
+	return `${spec.name} ${formatRegister(rs2)}, ${formatNumber(imm, this.numberBase)}`;
 }
 
-function decodeCIWType(spec: InstructionSpec, word: number): string {
+function decodeCIWType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = ((word >> 2) & 0x7) + 8;
 	const imm = ((word >> 5) & 0x1) | ((word >> 6) & 0x3) << 1 | ((word >> 10) & 0x3) << 3 | ((word >> 12) & 0x1) << 5;
-	return `${spec.name} ${formatRegister(rd)}, ${imm}`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}`;
 }
 
-function decodeCLType(spec: InstructionSpec, word: number): string {
+function decodeCLType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = ((word >> 2) & 0x7) + 8;
 	const rs1 = ((word >> 7) & 0x7) + 8;
 	const imm = ((word >> 5) & 0x1) | ((word >> 10) & 0x7) << 1;
-	return `${spec.name} ${formatRegister(rd)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeCSType(spec: InstructionSpec, word: number): string {
+function decodeCSType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rs2 = ((word >> 2) & 0x7) + 8;
 	const rs1 = ((word >> 7) & 0x7) + 8;
 	const imm = ((word >> 5) & 0x1) | ((word >> 10) & 0x7) << 1;
-	return `${spec.name} ${formatRegister(rs2)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatRegister(rs2)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
 function decodeCAType(spec: InstructionSpec, word: number): string {
@@ -618,27 +618,27 @@ function decodeCAType(spec: InstructionSpec, word: number): string {
 	return `${spec.name} ${formatRegister(rd)}, ${formatRegister(rs2)}`;
 }
 
-function decodeCBType(spec: InstructionSpec, word: number): string {
+function decodeCBType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rs1 = ((word >> 2) & 0x7) + 8;
 	const imm = signExtend(((word >> 3) & 0x1) | ((word >> 5) & 0x3) << 1 | ((word >> 10) & 0x3) << 3 | ((word >> 12) & 0x1) << 5, 6);
 	if (spec.operandPattern === 'rd_rs1_nzimm5') {
-		return `${spec.name} ${formatRegister(rs1)}, ${formatRegister(rs1)}, ${imm}`;
+		return `${spec.name} ${formatRegister(rs1)}, ${formatRegister(rs1)}, ${formatNumber(imm, this.numberBase)}`;
 	} else if (spec.operandPattern === 'rs1_nzimm5') {
-		return `${spec.name} ${formatRegister(rs1)}, ${imm}`;
+		return `${spec.name} ${formatRegister(rs1)}, ${formatNumber(imm, this.numberBase)}`;
 	}
 	return spec.name;
 }
 
-function decodeCJType(spec: InstructionSpec, word: number): string {
+function decodeCJType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const imm = signExtend(
 		((word >> 2) & 0x1) | ((word >> 3) & 0x7) << 1 | ((word >> 6) & 0x3) << 4 |
 		((word >> 8) & 0x1) << 6 | ((word >> 9) & 0x3) << 7 | ((word >> 11) & 0x1) << 9 |
 		((word >> 12) & 0x1) << 10, 11
 	);
-	return `${spec.name} ${imm}`;
+	return `${spec.name} ${formatNumber(imm, this.numberBase)}`;
 }
 
-function decodeVType(spec: InstructionSpec, word: number): string {
+function decodeVType(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const vd = (word >> 7) & 0x1f;
 	const vs1 = (word >> 15) & 0x1f;
 	const vs2 = (word >> 20) & 0x1f;
@@ -658,7 +658,7 @@ function decodeVType(spec: InstructionSpec, word: number): string {
 		case 'vd_vs1_imm':
 		case 'vd_vs1_imm_vm':
 			const imm = signExtend(vs1, 5);
-			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1 >> 5 ? vs1 : 0)}, ${imm}`; // For imm, vs1 field contains immediate
+			operands = `${formatVectorRegister(vd)}, ${formatVectorRegister(vs1 >> 5 ? vs1 : 0)}, ${formatNumber(imm, this.numberBase)}`; // For imm, vs1 field contains immediate
 			break;
 		case 'vd_rs1':
 		case 'vd_rs1_vm':
@@ -680,18 +680,18 @@ function decodeVType(spec: InstructionSpec, word: number): string {
 	return `${spec.name} ${operands}`;
 }
 
-function decodeVLoad(spec: InstructionSpec, word: number): string {
+function decodeVLoad(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const vd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const imm = signExtend((word >> 20) & 0xfff, 12);
-	return `${spec.name} ${formatVectorRegister(vd)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatVectorRegister(vd)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 
-function decodeVStore(spec: InstructionSpec, word: number): string {
+function decodeVStore(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const vs3 = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const vs2 = (word >> 20) & 0x1f;
 	const imm = signExtend(((word >> 25) & 0x7f) << 5 | vs3, 12);
-	return `${spec.name} ${formatVectorRegister(vs2)}, ${imm}(${formatRegister(rs1)})`;
+	return `${spec.name} ${formatVectorRegister(vs2)}, ${formatNumber(imm, this.numberBase)}(${formatRegister(rs1)})`;
 }
 

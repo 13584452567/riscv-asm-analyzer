@@ -8,4 +8,8 @@
   "configuration.title": "RISC-V Analyzer",
   "configuration.cliPath.description": "Absolute path to the external RISC-V assembler/disassembler CLI.",
   "configuration.defaultArgs.description": "Additional arguments to append when invoking the CLI tool."
+  ,
+  "Number base": "Number base",
+  "Hex (0x1234)": "Hex (0x1234)",
+  "Decimal (12345)": "Decimal (12345)"
 }
