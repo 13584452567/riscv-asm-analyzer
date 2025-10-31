@@ -13,13 +13,11 @@ riscv-asm-analyzer 是一个用于在 VS Code 中分析 RISC-V 汇编代码的�
 
 在 VS Code 中搜索 `riscv-asm-analyzer` 并安装，或者从 VSIX 文件安装。
 
-> 注意：发布到 Marketplace 前，请在 `package.json` 中把 `publisher` 字段替换为你的发布者 ID（例如 `yourPublisherName`）。扩展标识为 `publisher.name`（例如 `yourPublisherName.riscv-asm-analyzer`）。
-
 ## 使用示例
 
 1. 打开一个包含 RISC-V 汇编的文件（`.s`, `.asm` 等）。
 2. 选中一段汇编代码，右键选择 “Load selection” 或使用命令面板命令 `riscv-asm-analyzer.loadSelection`。
-3. 查看侧边栏的反汇编与寄存器视图。
+3. 查看侧边栏的反汇编视图。
 
 ## 配置
 
@@ -43,13 +41,4 @@ https://github.com/13584452567/riscv-asm-analyzer
 
 ## 许可
 
-本项目采用 MIT 许可（`LICENSE`）。如需更改，请在 `package.json` 中更新 `license` 字段并在仓库根部添加相应 LICENSE 文件。
-
-## 发布说明
-
-请在 `CHANGELOG.md` 中维护发布记录，Marketplace 页面会自动显示 `README.md` 的内容作为扩展详情。
-
-***
-
-如果你希望我把 README 改为英文或添加更详细的示例截图/动图，请告诉我你想展示的图片或把图片文件放到 `images/` 下，我会更新 README 并提交更改.
-
+本项目采用 MIT 许可（`LICENSE`）。
