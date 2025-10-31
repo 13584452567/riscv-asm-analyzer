@@ -1,291 +1,291 @@
-import type { InstructionSpec } from '../instruction-types';
+import type { InstructionSpec } from "../instruction-types"
 
 // RISC-V Compressed Instruction Extension (RVC)
 
 // Integer Computational Instructions
 const rvcIntegerComputationalInstructions: InstructionSpec[] = [
-	{
-		name: 'c.addi',
-		format: 'CI',
-		opcode: 0b01,
-		funct3: 0b000,
-		operandPattern: 'rd_rs1_nzimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.addiw',
-		format: 'CI',
-		opcode: 0b01,
-		funct3: 0b001,
-		operandPattern: 'rd_rs1_nzimm6',
-		minXlen: 64
-	},
-	{
-		name: 'c.addi16sp',
-		format: 'CI',
-		opcode: 0b01,
-		funct3: 0b011,
-		operandPattern: 'rd_nzimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.addi4spn',
-		format: 'CIW',
-		opcode: 0b00,
-		funct3: 0b000,
-		operandPattern: 'rd_nzuimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.slli',
-		format: 'CI',
-		opcode: 0b10,
-		funct3: 0b000,
-		operandPattern: 'rd_rs1_nzimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.srli',
-		format: 'CB',
-		opcode: 0b01,
-		funct3: 0b100,
-		funct2: 0b00,
-		operandPattern: 'rd_rs1_nzimm5',
-		minXlen: 32
-	},
-	{
-		name: 'c.srai',
-		format: 'CB',
-		opcode: 0b01,
-		funct3: 0b100,
-		funct2: 0b01,
-		operandPattern: 'rd_rs1_nzimm5',
-		minXlen: 32
-	},
-	{
-		name: 'c.andi',
-		format: 'CB',
-		opcode: 0b01,
-		funct3: 0b100,
-		funct2: 0b10,
-		operandPattern: 'rd_rs1_nzimm5',
-		minXlen: 32
-	},
-	{
-		name: 'c.mv',
-		format: 'CR',
-		opcode: 0b10,
-		funct4: 0b1000,
-		operandPattern: 'rd_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.add',
-		format: 'CR',
-		opcode: 0b10,
-		funct4: 0b1001,
-		operandPattern: 'rd_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.and',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100011,
-		funct2: 0b11,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.or',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100011,
-		funct2: 0b10,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.xor',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100011,
-		funct2: 0b01,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.sub',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100011,
-		funct2: 0b00,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 32
-	},
-	{
-		name: 'c.addw',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100111,
-		funct2: 0b01,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 64
-	},
-	{
-		name: 'c.subw',
-		format: 'CA',
-		opcode: 0b01,
-		funct6: 0b100111,
-		funct2: 0b00,
-		operandPattern: 'rd_rs1_rs2',
-		minXlen: 64
-	}
-];
+    {
+        name: "c.addi",
+        format: "CI",
+        opcode: 0b01,
+        funct3: 0b000,
+        operandPattern: "rd_rs1_nzimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.addiw",
+        format: "CI",
+        opcode: 0b01,
+        funct3: 0b001,
+        operandPattern: "rd_rs1_nzimm6",
+        minXlen: 64,
+    },
+    {
+        name: "c.addi16sp",
+        format: "CI",
+        opcode: 0b01,
+        funct3: 0b011,
+        operandPattern: "rd_nzimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.addi4spn",
+        format: "CIW",
+        opcode: 0b00,
+        funct3: 0b000,
+        operandPattern: "rd_nzuimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.slli",
+        format: "CI",
+        opcode: 0b10,
+        funct3: 0b000,
+        operandPattern: "rd_rs1_nzimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.srli",
+        format: "CB",
+        opcode: 0b01,
+        funct3: 0b100,
+        funct2: 0b00,
+        operandPattern: "rd_rs1_nzimm5",
+        minXlen: 32,
+    },
+    {
+        name: "c.srai",
+        format: "CB",
+        opcode: 0b01,
+        funct3: 0b100,
+        funct2: 0b01,
+        operandPattern: "rd_rs1_nzimm5",
+        minXlen: 32,
+    },
+    {
+        name: "c.andi",
+        format: "CB",
+        opcode: 0b01,
+        funct3: 0b100,
+        funct2: 0b10,
+        operandPattern: "rd_rs1_nzimm5",
+        minXlen: 32,
+    },
+    {
+        name: "c.mv",
+        format: "CR",
+        opcode: 0b10,
+        funct4: 0b1000,
+        operandPattern: "rd_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.add",
+        format: "CR",
+        opcode: 0b10,
+        funct4: 0b1001,
+        operandPattern: "rd_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.and",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100011,
+        funct2: 0b11,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.or",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100011,
+        funct2: 0b10,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.xor",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100011,
+        funct2: 0b01,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.sub",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100011,
+        funct2: 0b00,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 32,
+    },
+    {
+        name: "c.addw",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100111,
+        funct2: 0b01,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 64,
+    },
+    {
+        name: "c.subw",
+        format: "CA",
+        opcode: 0b01,
+        funct6: 0b100111,
+        funct2: 0b00,
+        operandPattern: "rd_rs1_rs2",
+        minXlen: 64,
+    },
+]
 
 // Load and Store Instructions
 const rvcLoadStoreInstructions: InstructionSpec[] = [
-	{
-		name: 'c.lw',
-		format: 'CL',
-		opcode: 0b00,
-		funct3: 0b010,
-		operandPattern: 'rd_rs1_nzuimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.sw',
-		format: 'CS',
-		opcode: 0b00,
-		funct3: 0b110,
-		operandPattern: 'rs2_rs1_nzuimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.lwsp',
-		format: 'CI',
-		opcode: 0b10,
-		funct3: 0b010,
-		operandPattern: 'rd_nzimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.swsp',
-		format: 'CSS',
-		opcode: 0b10,
-		funct3: 0b110,
-		operandPattern: 'rs2_nzimm6',
-		minXlen: 32
-	},
-	{
-		name: 'c.ld',
-		format: 'CL',
-		opcode: 0b00,
-		funct3: 0b011,
-		operandPattern: 'rd_rs1_nzuimm6',
-		minXlen: 64
-	},
-	{
-		name: 'c.sd',
-		format: 'CS',
-		opcode: 0b00,
-		funct3: 0b111,
-		operandPattern: 'rs2_rs1_nzuimm6',
-		minXlen: 64
-	},
-	{
-		name: 'c.ldsp',
-		format: 'CI',
-		opcode: 0b10,
-		funct3: 0b011,
-		operandPattern: 'rd_nzimm6',
-		minXlen: 64
-	},
-	{
-		name: 'c.sdsp',
-		format: 'CSS',
-		opcode: 0b10,
-		funct3: 0b111,
-		operandPattern: 'rs2_nzimm6',
-		minXlen: 64
-	}
-];
+    {
+        name: "c.lw",
+        format: "CL",
+        opcode: 0b00,
+        funct3: 0b010,
+        operandPattern: "rd_rs1_nzuimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.sw",
+        format: "CS",
+        opcode: 0b00,
+        funct3: 0b110,
+        operandPattern: "rs2_rs1_nzuimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.lwsp",
+        format: "CI",
+        opcode: 0b10,
+        funct3: 0b010,
+        operandPattern: "rd_nzimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.swsp",
+        format: "CSS",
+        opcode: 0b10,
+        funct3: 0b110,
+        operandPattern: "rs2_nzimm6",
+        minXlen: 32,
+    },
+    {
+        name: "c.ld",
+        format: "CL",
+        opcode: 0b00,
+        funct3: 0b011,
+        operandPattern: "rd_rs1_nzuimm6",
+        minXlen: 64,
+    },
+    {
+        name: "c.sd",
+        format: "CS",
+        opcode: 0b00,
+        funct3: 0b111,
+        operandPattern: "rs2_rs1_nzuimm6",
+        minXlen: 64,
+    },
+    {
+        name: "c.ldsp",
+        format: "CI",
+        opcode: 0b10,
+        funct3: 0b011,
+        operandPattern: "rd_nzimm6",
+        minXlen: 64,
+    },
+    {
+        name: "c.sdsp",
+        format: "CSS",
+        opcode: 0b10,
+        funct3: 0b111,
+        operandPattern: "rs2_nzimm6",
+        minXlen: 64,
+    },
+]
 
 // Control Transfer Instructions
 const rvcControlTransferInstructions: InstructionSpec[] = [
-	{
-		name: 'c.j',
-		format: 'CJ',
-		opcode: 0b01,
-		funct3: 0b101,
-		operandPattern: 'rd_nzimm11',
-		minXlen: 32
-	},
-	{
-		name: 'c.jal',
-		format: 'CJ',
-		opcode: 0b01,
-		funct3: 0b001,
-		operandPattern: 'rd_nzimm11',
-		minXlen: 32
-	},
-	{
-		name: 'c.jr',
-		format: 'CR',
-		opcode: 0b10,
-		funct4: 0b1000,
-		operandPattern: 'rs1',
-		minXlen: 32
-	},
-	{
-		name: 'c.jalr',
-		format: 'CR',
-		opcode: 0b10,
-		funct4: 0b1001,
-		operandPattern: 'rs1',
-		minXlen: 32
-	},
-	{
-		name: 'c.beqz',
-		format: 'CB',
-		opcode: 0b01,
-		funct3: 0b110,
-		operandPattern: 'rs1_nzimm5',
-		minXlen: 32
-	},
-	{
-		name: 'c.bnez',
-		format: 'CB',
-		opcode: 0b01,
-		funct3: 0b111,
-		operandPattern: 'rs1_nzimm5',
-		minXlen: 32
-	}
-];
+    {
+        name: "c.j",
+        format: "CJ",
+        opcode: 0b01,
+        funct3: 0b101,
+        operandPattern: "rd_nzimm11",
+        minXlen: 32,
+    },
+    {
+        name: "c.jal",
+        format: "CJ",
+        opcode: 0b01,
+        funct3: 0b001,
+        operandPattern: "rd_nzimm11",
+        minXlen: 32,
+    },
+    {
+        name: "c.jr",
+        format: "CR",
+        opcode: 0b10,
+        funct4: 0b1000,
+        operandPattern: "rs1",
+        minXlen: 32,
+    },
+    {
+        name: "c.jalr",
+        format: "CR",
+        opcode: 0b10,
+        funct4: 0b1001,
+        operandPattern: "rs1",
+        minXlen: 32,
+    },
+    {
+        name: "c.beqz",
+        format: "CB",
+        opcode: 0b01,
+        funct3: 0b110,
+        operandPattern: "rs1_nzimm5",
+        minXlen: 32,
+    },
+    {
+        name: "c.bnez",
+        format: "CB",
+        opcode: 0b01,
+        funct3: 0b111,
+        operandPattern: "rs1_nzimm5",
+        minXlen: 32,
+    },
+]
 
 // Miscellaneous Instructions
 const rvcMiscellaneousInstructions: InstructionSpec[] = [
-	{
-		name: 'c.nop',
-		format: 'CI',
-		opcode: 0b01,
-		funct3: 0b000,
-		operandPattern: 'none',
-		minXlen: 32
-	},
-	{
-		name: 'c.ebreak',
-		format: 'CI',
-		opcode: 0b10,
-		funct3: 0b100,
-		operandPattern: 'none',
-		minXlen: 32
-	}
-];
+    {
+        name: "c.nop",
+        format: "CI",
+        opcode: 0b01,
+        funct3: 0b000,
+        operandPattern: "none",
+        minXlen: 32,
+    },
+    {
+        name: "c.ebreak",
+        format: "CI",
+        opcode: 0b10,
+        funct3: 0b100,
+        operandPattern: "none",
+        minXlen: 32,
+    },
+]
 
 export const rvcInstructions: InstructionSpec[] = [
-	...rvcIntegerComputationalInstructions,
-	...rvcLoadStoreInstructions,
-	...rvcControlTransferInstructions,
-	...rvcMiscellaneousInstructions
-];
+    ...rvcIntegerComputationalInstructions,
+    ...rvcLoadStoreInstructions,
+    ...rvcControlTransferInstructions,
+    ...rvcMiscellaneousInstructions,
+]

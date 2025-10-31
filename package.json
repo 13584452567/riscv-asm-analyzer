@@ -51,7 +51,7 @@
         {
           "id": "riscvAsmAnalyzer",
           "title": "%viewContainer.riscvAsmAnalyzer.title%",
-          "icon": "images/riscv-view.svg"
+          "icon": "images/Assembly-RISCV.svg"
         }
       ]
     },
@@ -61,7 +61,7 @@
           "id": "riscvAsmAnalyzer.view",
           "name": "%view.riscvAsmAnalyzer.view.name%",
           "type": "webview",
-          "icon": "images/riscv-view.svg"
+          "icon": "images/Assembly-RISCV.svg"
         }
       ]
     },
