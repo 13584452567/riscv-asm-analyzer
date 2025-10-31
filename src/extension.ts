@@ -105,6 +105,15 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
     public setInput(value: string): void {
         this.enqueueMessage({ type: "setInput", value })
+        // Persist last input to workspace state so UI can be restored on next activation
+        try {
+            void this.context.workspaceState.update(
+                "riscvAsmAnalyzer.lastInput",
+                value
+            )
+        } catch {
+            // ignore persistence errors
+        }
     }
 
     public resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -133,13 +142,22 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
         this.enqueueMessage({ type: "setFloatMode", value: this.floatMode })
         // Restore persisted UI state (last input and controls) from workspaceState
         try {
-            const ws = this.context.workspaceState;
-            this.xlenMode = ws.get<XLenSelection>('riscvAsmAnalyzer.lastXlen', this.xlenMode);
-            this.isEmbedded = ws.get<boolean>('riscvAsmAnalyzer.lastEmbedded', this.isEmbedded);
-            this.floatMode = ws.get<FloatMode>('riscvAsmAnalyzer.lastFloatMode', this.floatMode);
-            const lastInput = ws.get<string>('riscvAsmAnalyzer.lastInput');
-            if (typeof lastInput === 'string' && lastInput.length > 0) {
-                this.enqueueMessage({ type: 'setInput', value: lastInput });
+            const ws = this.context.workspaceState
+            this.xlenMode = ws.get<XLenSelection>(
+                "riscvAsmAnalyzer.lastXlen",
+                this.xlenMode
+            )
+            this.isEmbedded = ws.get<boolean>(
+                "riscvAsmAnalyzer.lastEmbedded",
+                this.isEmbedded
+            )
+            this.floatMode = ws.get<FloatMode>(
+                "riscvAsmAnalyzer.lastFloatMode",
+                this.floatMode
+            )
+            const lastInput = ws.get<string>("riscvAsmAnalyzer.lastInput")
+            if (typeof lastInput === "string" && lastInput.length > 0) {
+                this.enqueueMessage({ type: "setInput", value: lastInput })
             }
         } catch {
             // ignore workspace state errors and continue with defaults
@@ -147,14 +165,15 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
 
         // Read persisted number base from workspace/user settings
         try {
-            const cfg = vscode.workspace.getConfiguration('riscvAsmAnalyzer');
-            this.numberBase = cfg.get<'hex' | 'dec'>('numberBase', this.numberBase);
+            const cfg = vscode.workspace.getConfiguration("riscvAsmAnalyzer")
+            this.numberBase = cfg.get<"hex" | "dec">(
+                "numberBase",
+                this.numberBase
+            )
         } catch {
             // ignore errors and keep default
         }
-        } catch {
-            // ignore errors and keep default
-        }
+
         this.enqueueMessage({ type: "setNumberBase", value: this.numberBase })
     }
 
@@ -174,6 +193,27 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
                 this.isEmbedded = message.isEmbedded
                 this.floatMode = message.floatMode
                 this.numberBase = message.numberBase ?? "hex"
+                // Persist UI settings and last input to workspace state
+                try {
+                    await this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastXlen",
+                        this.xlenMode
+                    )
+                    await this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastEmbedded",
+                        this.isEmbedded
+                    )
+                    await this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastFloatMode",
+                        this.floatMode
+                    )
+                    await this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastInput",
+                        message.input
+                    )
+                } catch {
+                    // ignore persistence errors
+                }
                 await this.handleRun(
                     message.mode,
                     message.input,
@@ -192,12 +232,36 @@ class RiscvAnalyzerViewProvider implements vscode.WebviewViewProvider {
                 break
             case "updateXlen":
                 this.xlenMode = normalizeXlenSelection(message.value)
+                try {
+                    void this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastXlen",
+                        this.xlenMode
+                    )
+                } catch {
+                    // ignore
+                }
                 break
             case "updateEmbedded":
                 this.isEmbedded = message.value
+                try {
+                    void this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastEmbedded",
+                        this.isEmbedded
+                    )
+                } catch {
+                    // ignore
+                }
                 break
             case "updateFloat":
                 this.floatMode = message.value
+                try {
+                    void this.context.workspaceState.update(
+                        "riscvAsmAnalyzer.lastFloatMode",
+                        this.floatMode
+                    )
+                } catch {
+                    // ignore
+                }
                 break
             case "updateNumberBase":
                 this.numberBase = message.value
