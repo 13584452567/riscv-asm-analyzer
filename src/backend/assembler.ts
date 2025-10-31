@@ -2,7 +2,7 @@ import { AnalyzerError } from './errors';
 import { instructionsByName, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
 import { parseRegister, parseFloatRegister, parseVectorRegister } from './registers';
-import { formatHex, parseImmediate } from './utils';
+import { formatHex, formatNumber, parseImmediate } from './utils';
 
 
 export interface AssembleDetailedResult extends AnalyzerResultBase {
@@ -20,7 +20,7 @@ export function assembleDetailed(source: string, options?: AnalyzerOptions): Ass
 	const assembler = new Assembler(mode, isEmbedded);
 	const { words, detectedXlen } = assembler.assemble(source);
 	return {
-		output: words.map(formatHex).join('\n'),
+		output: words.map(w => formatNumber(w, options?.numberBase ?? 'hex')).join('\n'),
 		words,
 		detectedXlen,
 		mode

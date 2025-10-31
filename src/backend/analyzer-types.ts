@@ -7,6 +7,8 @@ export interface AnalyzerOptions {
 	doubleEnabled?: boolean;
 	quadEnabled?: boolean;
 	vlen?: number; // Vector Length (VLEN)
+	// Preferred numeric output base. 'hex' for 0x... (default), 'dec' for decimal
+	numberBase?: 'hex' | 'dec';
 }
 
 export interface AnalyzerResultBase {

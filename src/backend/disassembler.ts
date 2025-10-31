@@ -2,7 +2,7 @@ import { AnalyzerError } from './errors';
 import { instructionsByOpcode, InstructionSpec, type XLenMode, type XLen } from './instruction-set';
 import type { AnalyzerOptions, AnalyzerResultBase } from './analyzer-types';
 import { formatRegister, formatFloatRegister, formatVectorRegister } from './registers';
-import { parseNumericLiteral, signExtend } from './utils';
+import { parseNumericLiteral, signExtend, formatNumber } from './utils';
 
 export interface DisassembleDetailedResult extends AnalyzerResultBase {
 	lines: string[];
@@ -17,7 +17,8 @@ export function disassembleDetailed(source: string, options?: AnalyzerOptions): 
 	const tokenizer = new MachineCodeTokenizer();
 	const tokens = tokenizer.tokenize(source);
 	const mode = options?.xlen ?? 'auto';
-	const disassembler = new Disassembler(mode);
+	const numberBase = options?.numberBase ?? 'hex';
+	const disassembler = new Disassembler(mode, numberBase);
 	const { lines, detectedXlen } = disassembler.disassemble(tokens);
 	return {
 		lines,
@@ -30,10 +31,12 @@ export function disassembleDetailed(source: string, options?: AnalyzerOptions): 
 class Disassembler {
 	private readonly mode: XLenMode;
 	private detectedXlen: XLen;
+	public readonly numberBase: 'hex' | 'dec';
 
-	constructor(mode: XLenMode) {
+	constructor(mode: XLenMode, numberBase: 'hex' | 'dec') {
 		this.mode = mode;
 		this.detectedXlen = typeof mode === 'number' ? mode : 32;
+		this.numberBase = numberBase;
 	}
 
 	public disassemble(tokens: MachineWordToken[]): { lines: string[]; detectedXlen: XLen } {
@@ -55,7 +58,7 @@ class Disassembler {
 		const opcode = word & 0x7f;
 		const candidates = instructionsByOpcode.get(opcode);
 		if (!candidates || candidates.length === 0) {
-			throw new AnalyzerError(`Unknown opcode 0x${opcode.toString(16)}`, line);
+			throw new AnalyzerError(`Unknown opcode ${formatNumber(opcode)}`, line);
 		}
 		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate))
 			.sort((a, b) => (b.minXlen ?? 32) - (a.minXlen ?? 32));
@@ -97,9 +100,9 @@ class Disassembler {
 			case 'fence':
 				return decodeFence(spec, word);
 			case 'rd_csr_rs1':
-				return decodeCsrRegister(spec, word);
+				return decodeCsrRegister.call(this, spec, word);
 			case 'rd_csr_imm5':
-				return decodeCsrImmediate(spec, word);
+				return decodeCsrImmediate.call(this, spec, word);
 			case 'rd_rs1_imm6':
 				return decodeIType(spec, word);
 			case 'fd_rs1':
@@ -157,7 +160,7 @@ class Disassembler {
 
 		const candidates = instructionsByOpcode.get(fullOpcode);
 		if (!candidates || candidates.length === 0) {
-			throw new AnalyzerError(`Unknown compressed opcode 0x${fullOpcode.toString(16)}`, line);
+			throw new AnalyzerError(`Unknown compressed opcode ${formatNumber(fullOpcode)}`, line);
 		}
 		const filtered = candidates.filter(candidate => this.isInstructionAllowed(candidate))
 			.sort((a, b) => (b.minXlen ?? 32) - (a.minXlen ?? 32));
@@ -547,18 +550,18 @@ function formatFenceMask(mask: number): string {
 	return result;
 }
 
-function decodeCsrRegister(spec: InstructionSpec, word: number): string {
+function decodeCsrRegister(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const rs1 = (word >> 15) & 0x1f;
 	const csr = (word >> 20) & 0xfff;
-	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${formatRegister(rs1)}`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(csr, this.numberBase)}, ${formatRegister(rs1)}`;
 }
 
-function decodeCsrImmediate(spec: InstructionSpec, word: number): string {
+function decodeCsrImmediate(this: Disassembler, spec: InstructionSpec, word: number): string {
 	const rd = (word >> 7) & 0x1f;
 	const zimm = (word >> 15) & 0x1f;
 	const csr = (word >> 20) & 0xfff;
-	return `${spec.name} ${formatRegister(rd)}, 0x${csr.toString(16)}, ${zimm}`;
+	return `${spec.name} ${formatRegister(rd)}, ${formatNumber(csr, this.numberBase)}, ${formatNumber(zimm, this.numberBase)}`;
 }
 
 function decodeCRType(spec: InstructionSpec, word: number): string {

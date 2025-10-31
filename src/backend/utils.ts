@@ -55,3 +55,11 @@ export function formatHex(value: number): string {
 	const normalized = value >>> 0;
 	return `0x${normalized.toString(16).padStart(8, '0')}`;
 }
+
+export function formatNumber(value: number, base: 'hex' | 'dec' = 'hex'): string {
+	if (base === 'dec') {
+		// Use unsigned representation for consistency with machine words
+		return String(value >>> 0);
+	}
+	return formatHex(value);
+}
