@@ -90,19 +90,7 @@
           "default": "hex",
           "description": "Default number base used to display immediates and offsets in the analyzer UI."
         },
-        "riscvAsmAnalyzer.cliPath": {
-          "type": "string",
-          "default": "",
-          "description": "%configuration.cliPath.description%"
-        },
-        "riscvAsmAnalyzer.defaultArgs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "%configuration.defaultArgs.description%"
-        }
+        
       }
     }
   },

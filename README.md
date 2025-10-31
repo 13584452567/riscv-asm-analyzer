@@ -23,8 +23,7 @@ riscv-asm-analyzer 是一个用于在 VS Code 中分析 RISC-V 汇编代码的�
 
 本扩展提供如下用户设置（在 `settings.json` 中）：
 
-- `riscvAsmAnalyzer.cliPath` (string) — 可选，指向本地外部分析工具的路径（如果你需要将处理委托给外部 CLI）。
-- `riscvAsmAnalyzer.defaultArgs` (string[]) — 当使用外部 CLI 时的默认参数。
+- `riscvAsmAnalyzer.numberBase` ("hex" | "dec") — 默认的数值显示基数（用于立即数/偏移量等）。
 
 ## 常见问题
 
