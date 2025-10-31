@@ -14,9 +14,6 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onCommand:riscv-asm-analyzer.openSidebar",
-    "onCommand:riscv-asm-analyzer.loadSelection",
-    "onView:riscvAsmAnalyzer.view"
   ],
   "l10n": "./i10n",
   "repository": {
